@@ -28,7 +28,6 @@ A responsive real estate platform built using the **MERN stack** (MongoDB, Expre
 - **Express.js**: Web framework for building RESTful APIs.
 - **MongoDB**: NoSQL database for storing user and property data.
 - **Mongoose**: Object Data Modeling (ODM) for MongoDB.
-- **JWT**: JSON Web Tokens for authentication.
 
 
 ### Installation
