@@ -34,5 +34,6 @@ A responsive real estate platform built using the **MERN stack** (MongoDB, Expre
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/mern-real-estate.git
+   git clone https://github.com/V1R3J/mern-real-estate.git
+   
    cd mern-real-estate
