@@ -28,12 +28,12 @@ A responsive real estate platform built using the **MERN stack** (MongoDB, Expre
 - **Express.js**: Web framework for building RESTful APIs.
 - **MongoDB**: NoSQL database for storing user and property data.
 - **Mongoose**: Object Data Modeling (ODM) for MongoDB.
-- **JWT**: JSON Web Tokens for authentication.
 
 
 ### Installation
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/mern-real-estate.git
+   git clone https://github.com/V1R3J/mern-real-estate.git
+   
    cd mern-real-estate
