@@ -46,7 +46,7 @@ export default function SignIn() {
       <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
         <input type="email" placeholder='JohnDoe10@gmail.com' className='border p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-700 shadow-sm w-50 transition-all ' id='email'onChange={handleChange} />
         <input type="password" placeholder='*****' className='border p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-700 shadow-sm w-50 transition-all ' id='password' onChange={handleChange}/>
-        <button disabled={loading} className='bg-green-400 text-white p-3 uppercase rounded-md hover:opacity-80 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-blue-700'>{loading? 'Loading...': 'Sign In'}</button>
+        <button disabled={loading} className='bg-green-400 text-white p-3 uppercase rounded-md hover:opacity-85 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-blue-700'>{loading? 'Loading...': 'Sign In'}</button>
         <button></button>
       </form>
       <div className='flex gap-2 mt-1'>
