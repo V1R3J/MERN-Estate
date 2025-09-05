@@ -2,7 +2,7 @@
 
 A responsive real estate platform built using the **MERN stack** (MongoDB, Express.js, React, Node.js) and styled with **Tailwind CSS**. This website enables users to browse, list, and manage real estate properties with a sleek and modern UI.
 
-## ✨ Features
+## Features
 
 - **Property Listings**: View, search, and filter property listings by price, location, or type.
 - **User Authentication**: Secure login and registration with JWT-based authentication.
@@ -15,7 +15,7 @@ A responsive real estate platform built using the **MERN stack** (MongoDB, Expre
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠Tech Stack
 
 ### Frontend:
 - **React.js**: Component-based UI development.
@@ -37,3 +37,5 @@ A responsive real estate platform built using the **MERN stack** (MongoDB, Expre
    git clone https://github.com/V1R3J/mern-real-estate.git
    
    cd mern-real-estate
+   cd frontend
+   npm run dev
