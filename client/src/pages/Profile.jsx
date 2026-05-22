@@ -4,7 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { FaPen, FaSignOutAlt, FaTrash, FaUpload, FaEye, FaEyeSlash } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
-import { updateUserStart, updateUserSuccess, updateUserFailure, deleteUserFailure, deleteUserStart, deleteUserSuccess } from '../redux/user/userSlice'
+import {
+  updateUserStart, updateUserSuccess, updateUserFailure,
+  deleteUserFailure, deleteUserStart, deleteUserSuccess,
+  signOutUserStart, signOutUserSuccess, signOutUserFailure  // ✅ added signOutUserFailure
+} from '../redux/user/userSlice'
+// ✅ Removed: import { signOut } from '../../../api/controllers/auth.controller'
+//    — never import backend controllers into frontend components
 
 export default function Profile() {
   const fileRef = useRef(null)
@@ -101,13 +107,28 @@ export default function Profile() {
         return
       }
       setDeleteSuccess(true)
-      // Wait 2 seconds to show message, then clear user and redirect
       setTimeout(() => {
         dispatch(deleteUserSuccess(data))
         navigate('/sign-in')
       }, 2000)
     } catch (error) {
       dispatch(deleteUserFailure(error.message))
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      dispatch(signOutUserStart())
+      const res = await fetch('/api/auth/signout')
+      const data = await res.json()
+      if (data.success === false) {
+        dispatch(signOutUserFailure(data.message))  // ✅ was missing signOutUserFailure import
+        return
+      }
+      dispatch(signOutUserSuccess())
+      navigate('/sign-in')
+    } catch (error) {
+      dispatch(signOutUserFailure(error.message))   // ✅ network errors now handled
     }
   }
 
@@ -150,7 +171,7 @@ export default function Profile() {
 
         {/* Welcome message */}
         <h2 className='text-xl font-semibold text-green-700'>
-          Welcome, <span className='capitalize'>{currentUser?.username}</span>!
+          Welcome, <span className='capitalize'>{currentUser?.username?.slice(0,-4)}</span>!
         </h2>
 
         {/* Username */}
@@ -212,7 +233,7 @@ export default function Profile() {
         {/* Delete success message */}
         {deleteSuccess && (
           <p className='text-red-500 font-large mt-1'>
-             Account deleted. Redirecting to login...
+            Account deleted. Redirecting to login...
           </p>
         )}
 
@@ -229,6 +250,7 @@ export default function Profile() {
             {updating ? 'Updating...' : 'Update Profile'}
           </button>
           <button
+            onClick={handleSignOut}
             type='button'
             className='bg-red-500 self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-red-700 transition'
           >
