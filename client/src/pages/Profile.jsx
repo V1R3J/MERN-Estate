@@ -1,7 +1,7 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaPen, FaSignOutAlt, FaTrash, FaUpload, FaEye, FaEyeSlash } from 'react-icons/fa'
+import { FaPen, FaSignOutAlt, FaTrash, FaUpload, FaEye, FaEyeSlash, FaPlus } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
 import {
@@ -9,8 +9,8 @@ import {
   deleteUserFailure, deleteUserStart, deleteUserSuccess,
   signOutUserStart, signOutUserSuccess, signOutUserFailure  // ✅ added signOutUserFailure
 } from '../redux/user/userSlice'
-// ✅ Removed: import { signOut } from '../../../api/controllers/auth.controller'
 //    — never import backend controllers into frontend components
+import { Link } from 'react-router-dom';
 
 export default function Profile() {
   const fileRef = useRef(null)
@@ -133,7 +133,7 @@ export default function Profile() {
   }
 
   return (
-    <div className='p-10 max-w-xl mx-auto border-2 border-green-300 rounded-lg mt-10'>
+    <div className='p-10 max-w-xl mx-auto border-2 border-green-300 rounded-lg mt-10 md-10'>
       <h1 className='text-3xl font-semibold text-center my-7'>Profile</h1>
       <form onSubmit={handleSubmit} className='flex flex-col items-center gap-3'>
 
@@ -236,7 +236,6 @@ export default function Profile() {
             Account deleted. Redirecting to login...
           </p>
         )}
-
         {/* Error message */}
         <p className='text-red-700 mt-1'>{error ? error : ''}</p>
 
@@ -249,6 +248,9 @@ export default function Profile() {
             <FaUpload />
             {updating ? 'Updating...' : 'Update Profile'}
           </button>
+          <Link to={'/create-listing'} className='bg-blue-700 self-start text-center hover:opacity-75 flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-blue-700 transition'>
+            <FaPlus /> Create Listing
+          </Link>
           <button
             onClick={handleSignOut}
             type='button'
