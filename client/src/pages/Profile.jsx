@@ -1,13 +1,13 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaPen, FaSignOutAlt, FaTrash, FaUpload, FaEye, FaEyeSlash, FaPlus } from 'react-icons/fa'
+import { FaPen, FaSignOutAlt, FaTrash, FaUpload, FaEye, FaEyeSlash, FaPlus, FaList } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
 import {
   updateUserStart, updateUserSuccess, updateUserFailure,
   deleteUserFailure, deleteUserStart, deleteUserSuccess,
-  signOutUserStart, signOutUserSuccess, signOutUserFailure  // ✅ added signOutUserFailure
+  signOutUserStart, signOutUserSuccess, signOutUserFailure  
 } from '../redux/user/userSlice'
 //    — never import backend controllers into frontend components
 import { Link } from 'react-router-dom';
@@ -242,6 +242,7 @@ export default function Profile() {
         {/* Buttons */}
         <span className='flex gap-3 flex-wrap justify-center'>
           <button
+            type='submit'
             disabled={updating}
             className='bg-green-600 self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-green-700 transition disabled:opacity-70'
           >
@@ -265,8 +266,10 @@ export default function Profile() {
           >
             <FaTrash /> Delete Account
           </button>
+          <Link to={'/MyListings'} className='bg-green-700 w-xl self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-gray-800 transition'>
+            <FaList /> Show My Listings
+          </Link>
         </span>
-
       </form>
     </div>
   )
