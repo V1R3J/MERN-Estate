@@ -73,7 +73,7 @@ export default function MyListings() {
     setDeleting(null)
   }
 
-  const handleEdit = (id) => navigate(`/edit-listing/${id}`)
+  const handleEdit = (id) => navigate(`/update-listing/${id}`)
 
   const imgIdx  = (id)      => activeImg[id] ?? 0
   const setImg  = (id, i)   => setActiveImg(p => ({ ...p, [id]: i }))
