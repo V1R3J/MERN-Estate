@@ -1,5 +1,29 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
 import Listing from '../models/listing.model.js';
 import { errorHandler } from '../utils/error.js';
+import { Client, Storage } from 'node-appwrite';
+import 'dotenv/config'  
+
+// ── Appwrite server client ─────────────────────────────────────────────────────
+const client = new Client()
+  .setEndpoint(process.env.VITE_APPWRITE_ENDPOINT)
+  .setProject(process.env.VITE_APPWRITE_PROJECT_ID)
+  .setKey(process.env.APPWRITE_API_KEY)
+
+const storage = new Storage(client)
+const BUCKET_ID = process.env.VITE_APPWRITE_BUCKET_ID
+
+// ── helper: extract file ID from full Appwrite view URL ───────────────────────
+// URL shape: .../storage/buckets/{bucketId}/files/{fileId}/view?project=...
+const extractFileId = (url) => {
+  try {
+    return url.split('/files/')[1].split('/')[0]
+  } catch {
+    return null
+  }
+}
 
 export const createListing = async (req, res, next) => {
   try {
@@ -22,6 +46,20 @@ export const deleteListing = async (req, res, next) => {
   }
 
   try {
+    // Delete all images from Appwrite bucket first
+    const deleteImagePromises = (listing.imageUrls || [])
+      .map(url => extractFileId(url))
+      .filter(Boolean)
+      .map(fileId =>
+        storage.deleteFile(BUCKET_ID, fileId).catch(err => {
+          // Log but don't block — if a file is already gone, still delete the listing
+          console.warn(`Could not delete Appwrite file ${fileId}:`, err.message)
+        })
+      )
+
+    await Promise.all(deleteImagePromises)
+
+    // Then delete the listing document from MongoDB
     await Listing.findByIdAndDelete(req.params.id);
     res.status(200).json('Listing has been deleted!');
   } catch (error) {
@@ -91,9 +129,7 @@ export const getListings = async (req, res, next) => {
     }
 
     const searchTerm = req.query.searchTerm || '';
-
     const sort = req.query.sort || 'createdAt';
-
     const order = req.query.order || 'desc';
 
     const listings = await Listing.find({
