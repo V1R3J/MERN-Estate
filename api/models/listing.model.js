@@ -36,6 +36,14 @@ const listingSchema = new mongoose.Schema(
         // ── Suitability (optional) ────────────────────────────────────────────
         // 'any' | 'family' | 'couple' | 'bachelor'
         suitableFor: { type: String, default: 'any' },
+
+        // ── Contact details (optional) ───────────────────────────────────────
+        contactName:  { type: String, default: '' },
+        contactEmail: { type: String, default: '' },
+        contactPhone: { type: String, default: '' },
+
+        //-Floor Plan (optional) - can be a URL to an image or PDF
+        floorPlan: { type: String, default: '' }
     },
     { timestamps: true }
 )

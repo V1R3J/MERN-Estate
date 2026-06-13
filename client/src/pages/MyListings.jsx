@@ -5,7 +5,7 @@ import {
   FaBed, FaBath, FaCar, FaCouch, FaTag, FaPercent, FaMapMarkerAlt,
   FaPlus, FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaHome,
   FaList, FaSwimmingPool, FaDumbbell, FaChild, FaTree, FaShieldAlt,
-  FaWifi, FaBolt, FaRulerCombined, FaUserFriends, FaUser,
+  FaWifi, FaBolt, FaRulerCombined, FaUserFriends, FaUser, FaExternalLinkAlt
 } from 'react-icons/fa'
 
 // ── Rupee formatter (matches CreateListing) ───────────────────────────────────
@@ -210,9 +210,10 @@ export default function MyListings() {
 
                 {/* Content */}
                 <div className="p-6 sm:p-8">
-
                   {/* Title + address */}
-                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 leading-snug mb-1">{listing.name}</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 leading-snug mb-1">
+                    <Link to={`/listing/${listing._id}`} className="hover:underline">{listing.name} <FaExternalLinkAlt className="text-sm text-slate-500" /></Link>
+                    </h2>
                   <p className="flex items-center gap-1.5 text-sm text-slate-500 mb-4">
                     <FaMapMarkerAlt className="text-green-500 shrink-0" /> {listing.address}
                   </p>

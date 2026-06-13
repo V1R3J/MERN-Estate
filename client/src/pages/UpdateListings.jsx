@@ -9,7 +9,7 @@ import {
   FaExclamationCircle, FaCheckCircle, FaRulerCombined, FaUtensils,
   FaDoorOpen, FaSwimmingPool, FaChild, FaUserFriends, FaUser,
   FaTree, FaDumbbell, FaShieldAlt, FaWifi, FaBolt, FaEdit,
-  FaSave,
+  FaSave, FaUserTie, FaPhone, FaEnvelope, FaFileAlt, FaFilePdf,
 } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
@@ -56,23 +56,28 @@ export default function UpdateListing() {
   const params      = useParams()
   const { currentUser } = useSelector(state => state.user)
 
-  // ── fetch state ───────────────────────────────────────────────────────────────
+  // ── fetch state ────────────────────────────────────────────────────────────
   const [fetchLoading, setFetchLoading] = useState(true)
   const [fetchError,   setFetchError]   = useState('')
 
-  // ── existing images (already in DB as URLs) ───────────────────────────────────
-  // These are the URLs already stored in the listing. User can remove them.
-  const [existingUrls, setExistingUrls] = useState([])   // string[]
-  const [coverIndex,   setCoverIndex]   = useState(0)    // index over the FINAL merged array
+  // ── existing images (already in DB as URLs) ────────────────────────────────
+  const [existingUrls, setExistingUrls] = useState([])
+  const [coverIndex,   setCoverIndex]   = useState(0)
 
-  // ── new images (dropped by user, not yet uploaded) ────────────────────────────
-  const [newImages,        setNewImages]        = useState([])   // File[]
-  const [uploadProgress,   setUploadProgress]   = useState({})   // { [idx]: 0–100 }
-  const [newUploadedUrls,  setNewUploadedUrls]  = useState([])   // URLs from Appwrite after upload
-  const [uploading,        setUploading]        = useState(false)
-  const [uploadMsg,        setUploadMsg]        = useState({ type: '', text: '' })
+  // ── new images (dropped by user, not yet uploaded) ─────────────────────────
+  const [newImages,       setNewImages]       = useState([])
+  const [uploadProgress,  setUploadProgress]  = useState({})
+  const [newUploadedUrls, setNewUploadedUrls] = useState([])
+  const [uploading,       setUploading]       = useState(false)
+  const [uploadMsg,       setUploadMsg]       = useState({ type: '', text: '' })
 
-  // ── form / submit ─────────────────────────────────────────────────────────────
+  // ── floor plan state (new) ─────────────────────────────────────────────────
+  const [floorPlanFile,      setFloorPlanFile]      = useState(null)
+  const [floorPlanPreview,   setFloorPlanPreview]   = useState('')
+  const [floorPlanUploading, setFloorPlanUploading] = useState(false)
+  const [floorPlanMsg,       setFloorPlanMsg]       = useState({ type: '', text: '' })
+
+  // ── form / submit ──────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     name: '', description: '', address: '',
     type: '', parking: false, furnished: false, offer: false,
@@ -81,11 +86,15 @@ export default function UpdateListing() {
     swimmingPool: false, playArea: false, gym: false,
     garden: false, security: false, wifi: false, powerBackup: false,
     suitableFor: '',
+    // contact details (new)
+    contactName: '', contactEmail: '', contactPhone: '',
+    // floor plan (new)
+    floorPlan: '',
   })
-  const [loading,      setLoading]      = useState(false)
-  const [submitError,  setSubmitError]  = useState('')
+  const [loading,     setLoading]     = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
-  // ── derived ───────────────────────────────────────────────────────────────────
+  // ── derived ────────────────────────────────────────────────────────────────
   const isRent   = formData.type === 'rent'
   const hasOffer = formData.offer
 
@@ -96,14 +105,14 @@ export default function UpdateListing() {
     return Math.round(((reg - disc) / reg) * 100)
   })()
 
-  // New images are "all uploaded" when every dropped file has a returned URL
   const allNewUploaded = newImages.length === 0 || newUploadedUrls.length === newImages.length
+  const mergedUrls     = [...existingUrls, ...newUploadedUrls]
 
-  // Final merged URL list shown to user and sent on submit:
-  // existing (minus removed) + newly uploaded
-  const mergedUrls = [...existingUrls, ...newUploadedUrls]
+  const floorPlanUploaded = !!formData.floorPlan
+  const floorPlanIsImage  = floorPlanFile && floorPlanFile.type.startsWith('image/')
+  const floorPlanIsPDF    = floorPlanFile && floorPlanFile.type === 'application/pdf'
 
-  // ── fetch listing on mount ────────────────────────────────────────────────────
+  // ── fetch listing on mount ─────────────────────────────────────────────────
   // GET /api/listing/get/:listingId  →  listing.controller.js → getListing
   useEffect(() => {
     const fetchListing = async () => {
@@ -115,7 +124,6 @@ export default function UpdateListing() {
           setFetchError(data.message || 'Failed to load listing.')
           return
         }
-        // Populate form with existing data
         setFormData({
           name:          data.name          ?? '',
           description:   data.description   ?? '',
@@ -140,6 +148,12 @@ export default function UpdateListing() {
           wifi:          data.wifi          ?? false,
           powerBackup:   data.powerBackup   ?? false,
           suitableFor:   data.suitableFor   ?? '',
+          // contact details
+          contactName:   data.contactName   ?? '',
+          contactEmail:  data.contactEmail  ?? '',
+          contactPhone:  data.contactPhone  ?? '',
+          // floor plan
+          floorPlan:     data.floorPlan     ?? '',
         })
         setExistingUrls(data.imageUrls ?? [])
       } catch (err) {
@@ -151,7 +165,7 @@ export default function UpdateListing() {
     fetchListing()
   }, [params.listingId])
 
-  // ── handlers ──────────────────────────────────────────────────────────────────
+  // ── handlers ───────────────────────────────────────────────────────────────
   const handleChange = (e) => {
     const { id, type, value, checked } = e.target
     const val = type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
@@ -160,27 +174,22 @@ export default function UpdateListing() {
 
   const setType = (type) => setFormData(p => ({ ...p, type }))
 
-  // Remove an existing (already-saved) image URL
   const handleRemoveExisting = (idx) => {
     setExistingUrls(p => p.filter((_, i) => i !== idx))
-    // Adjust coverIndex if needed
     if (coverIndex > 0 && coverIndex >= idx) setCoverIndex(c => c - 1)
   }
 
-  // Remove a newly dropped (not-yet / already uploaded) image
   const handleRemoveNew = (idx) => {
     setUploadMsg({ type: '', text: '' })
     URL.revokeObjectURL(newImages[idx].preview)
     setNewImages(p => p.filter((_, i) => i !== idx))
     setUploadProgress(p => { const n = { ...p }; delete n[idx]; return n })
-    // Also remove the corresponding uploaded URL if it exists
     setNewUploadedUrls(p => p.filter((_, i) => i !== idx))
-    // Adjust coverIndex: cover is over mergedUrls so offset by existingUrls.length
     const globalIdx = existingUrls.length + idx
     if (coverIndex > 0 && coverIndex >= globalIdx) setCoverIndex(c => c - 1)
   }
 
-  // ── Dropzone ──────────────────────────────────────────────────────────────────
+  // ── Dropzone ───────────────────────────────────────────────────────────────
   const onDrop = useCallback((accepted) => {
     setUploadMsg({ type: '', text: '' })
     const oversized = accepted.filter(f => f.size > MAX_SIZE_B)
@@ -193,12 +202,10 @@ export default function UpdateListing() {
   }, [existingUrls, newImages])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    multiple: true,
+    onDrop, accept: { 'image/*': [] }, multiple: true,
   })
 
-  // ── Upload new images ─────────────────────────────────────────────────────────
+  // ── Upload listing images ──────────────────────────────────────────────────
   const storeImage = (img, idx) => new Promise(async (resolve, reject) => {
     try {
       const tick = setInterval(() =>
@@ -229,12 +236,53 @@ export default function UpdateListing() {
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
+  // ── Floor plan handlers (new) ──────────────────────────────────────────────
+  const handleFloorPlanChange = (e) => {
+    setFloorPlanMsg({ type: '', text: '' })
+    const file = e.target.files[0]
+    if (!file) return
+    const isImage = file.type.startsWith('image/')
+    const isPDF   = file.type === 'application/pdf'
+    if (!isImage && !isPDF)
+      return setFloorPlanMsg({ type: 'error', text: 'Only image or PDF files are accepted.' })
+    if (file.size > 10 * 1024 * 1024)
+      return setFloorPlanMsg({ type: 'error', text: 'Floor plan must be under 10 MB.' })
+    setFloorPlanFile(file)
+    setFloorPlanPreview(isImage ? URL.createObjectURL(file) : '')
+    // Clear the saved URL so user knows they need to re-upload
+    setFormData(p => ({ ...p, floorPlan: '' }))
+  }
+
+  const handleFloorPlanUpload = async () => {
+    if (!floorPlanFile) return
+    setFloorPlanUploading(true)
+    setFloorPlanMsg({ type: '', text: '' })
+    try {
+      const res = await storage.createFile(BUCKET_ID, ID.unique(), floorPlanFile)
+      const url = storage.getFileView(BUCKET_ID, res.$id)
+      if (!url) throw new Error('No URL returned.')
+      setFormData(p => ({ ...p, floorPlan: url.toString() }))
+      setFloorPlanMsg({ type: 'success', text: 'Floor plan uploaded successfully!' })
+    } catch (err) {
+      setFloorPlanMsg({ type: 'error', text: 'Upload failed: ' + (err.message || 'Please try again.') })
+    } finally {
+      setFloorPlanUploading(false)
+    }
+  }
+
+  const handleRemoveFloorPlan = () => {
+    if (floorPlanPreview) URL.revokeObjectURL(floorPlanPreview)
+    setFloorPlanFile(null)
+    setFloorPlanPreview('')
+    setFloorPlanMsg({ type: '', text: '' })
+    setFormData(p => ({ ...p, floorPlan: '' }))
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
   // POST /api/listing/update/:listingId  →  listing.controller.js → updateListing
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitError('')
-
     if (!formData.type)
       return setSubmitError('Please select whether the property is For Sale or For Rent.')
     if (mergedUrls.length === 0)
@@ -244,7 +292,6 @@ export default function UpdateListing() {
     if (hasOffer && Number(formData.discountPrice) >= Number(formData.regularPrice))
       return setSubmitError('Discounted price must be lower than the regular price.')
 
-    // Reorder so cover is first
     const orderedUrls = [
       mergedUrls[coverIndex],
       ...mergedUrls.filter((_, i) => i !== coverIndex),
@@ -267,13 +314,12 @@ export default function UpdateListing() {
     }
   }
 
-  // ── shared classes (identical to CreateListing) ───────────────────────────────
+  // ── Shared classes ─────────────────────────────────────────────────────────
   const inputCls   = 'w-full border border-slate-200 bg-slate-50 rounded-xl py-3 px-4 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition'
   const sectionCls = 'bg-white rounded-2xl shadow-sm border border-slate-200 p-6'
   const h2Cls      = 'text-sm font-semibold text-green-600 uppercase tracking-widest mb-5 flex items-center gap-2'
   const labelCls   = 'block text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1.5'
 
-  // ── Amenity + suitable data (identical to CreateListing) ─────────────────────
   const amenities = [
     { id: 'parking',      Icon: FaCar,          label: 'Parking'       },
     { id: 'furnished',    Icon: FaCouch,        label: 'Furnished'     },
@@ -294,7 +340,7 @@ export default function UpdateListing() {
     { value: 'bachelor', Icon: FaUser,        label: 'Bachelor' },
   ]
 
-  // ── Loading / error screen ────────────────────────────────────────────────────
+  // ── Loading / error screen ─────────────────────────────────────────────────
   if (fetchLoading) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -322,7 +368,7 @@ export default function UpdateListing() {
     )
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-slate-50 py-10 px-4 text-base">
 
@@ -442,7 +488,6 @@ export default function UpdateListing() {
               ))}
             </div>
 
-            {/* Optional space fields */}
             <p className={`${labelCls} mt-2 mb-3`}>Space Details <span className="text-slate-400 normal-case font-normal">(optional)</span></p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
@@ -503,6 +548,63 @@ export default function UpdateListing() {
               </div>
             )}
           </section>
+
+          {/* ── Contact Details (new) ──────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}>
+              <FaUserTie className="text-green-400" /> Contact Details
+              <span className="ml-auto text-xs font-normal text-slate-400 normal-case tracking-normal">Optional</span>
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">
+              These details will be shown to buyers or renters on your listing page.
+            </p>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label htmlFor="contactName" className={labelCls}>
+                  <FaUserTie className="inline mr-1.5 text-slate-400" /> Contact Name
+                </label>
+                <input
+                  onChange={handleChange}
+                  value={formData.contactName}
+                  type="text"
+                  id="contactName"
+                  placeholder="e.g. Rajesh Sharma"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label htmlFor="contactPhone" className={labelCls}>
+                  <FaPhone className="inline mr-1.5 text-slate-400" /> Phone Number
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">+91</span>
+                  <input
+                    onChange={handleChange}
+                    value={formData.contactPhone}
+                    type="tel"
+                    id="contactPhone"
+                    placeholder="98765 43210"
+                    maxLength={10}
+                    className={`${inputCls} pl-12`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="contactEmail" className={labelCls}>
+                  <FaEnvelope className="inline mr-1.5 text-slate-400" /> Email Address
+                </label>
+                <input
+                  onChange={handleChange}
+                  value={formData.contactEmail}
+                  type="email"
+                  id="contactEmail"
+                  placeholder="e.g. rajesh@example.com"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </section>
+
         </div>
 
         {/* ── RIGHT COLUMN ── */}
@@ -515,13 +617,13 @@ export default function UpdateListing() {
               Max {MAX_IMAGES} total · Max {MAX_SIZE_MB} MB each · Click any thumbnail to set as cover
             </p>
 
-            {/* ── Existing images from DB ── */}
+            {/* Existing images from DB */}
             {existingUrls.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Current Photos</p>
                 <div className="grid grid-cols-3 gap-2">
                   {existingUrls.map((url, i) => {
-                    const globalIdx = i   // existing come first in mergedUrls
+                    const globalIdx = i
                     const isCover   = coverIndex === globalIdx
                     return (
                       <div key={url} onClick={() => setCoverIndex(globalIdx)}
@@ -549,7 +651,7 @@ export default function UpdateListing() {
               </div>
             )}
 
-            {/* ── Dropzone for new images ── */}
+            {/* Dropzone for new images */}
             {mergedUrls.length < MAX_IMAGES && (
               <>
                 <div {...getRootProps()} className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition
@@ -559,12 +661,9 @@ export default function UpdateListing() {
                     <FaCloudUploadAlt className="text-green-500 text-xl" />
                   </div>
                   <p className="text-base font-semibold text-slate-700">{isDragActive ? 'Drop here!' : 'Add more photos'}</p>
-                  <p className="text-sm text-slate-400">
-                    PNG, JPG, WEBP · {mergedUrls.length}/{MAX_IMAGES} used
-                  </p>
+                  <p className="text-sm text-slate-400">PNG, JPG, WEBP · {mergedUrls.length}/{MAX_IMAGES} used</p>
                 </div>
 
-                {/* New image thumbnails */}
                 {newImages.length > 0 && (
                   <div className="mt-4">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">New Photos</p>
@@ -587,7 +686,6 @@ export default function UpdateListing() {
                                 Set Cover
                               </span>
                             )}
-                            {/* Per-image progress bar */}
                             {uploadProgress[i] !== undefined && uploadProgress[i] < 100 && uploading && (
                               <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/20">
                                 <div className="h-full bg-green-400 transition-all duration-200" style={{ width: `${uploadProgress[i]}%` }} />
@@ -610,7 +708,6 @@ export default function UpdateListing() {
                   </div>
                 )}
 
-                {/* Upload new images button */}
                 {newImages.length > 0 && (
                   <div className="mt-4">
                     {uploading && (
@@ -636,14 +733,12 @@ export default function UpdateListing() {
               </>
             )}
 
-            {/* Max reached notice */}
             {mergedUrls.length >= MAX_IMAGES && (
               <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
                 Maximum {MAX_IMAGES} images reached. Remove one above to add more.
               </p>
             )}
 
-            {/* Upload message */}
             {uploadMsg.text && (
               <div className={`mt-3 flex items-start gap-2 text-sm rounded-xl p-3 border
                 ${uploadMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
@@ -651,6 +746,106 @@ export default function UpdateListing() {
                   ? <FaCheckCircle className="mt-0.5 shrink-0 text-green-500" />
                   : <FaExclamationCircle className="mt-0.5 shrink-0 text-red-400" />}
                 <span>{uploadMsg.text}</span>
+              </div>
+            )}
+          </section>
+
+          {/* ── Floor Plan (new) ──────────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}>
+              <FaFileAlt className="text-green-400" /> Floor Plan
+              <span className="ml-auto text-xs font-normal text-slate-400 normal-case tracking-normal">Optional</span>
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">Upload an image or PDF of the floor plan. Max 10 MB.</p>
+
+            {/* Currently saved floor plan (from DB, no new file chosen) */}
+            {formData.floorPlan && !floorPlanFile && (
+              <div className="mb-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Current Floor Plan</p>
+                {formData.floorPlan.toLowerCase().includes('.pdf') ? (
+                  <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 bg-slate-50">
+                    <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                      <FaFilePdf className="text-red-500 text-lg" />
+                    </div>
+                    <p className="text-slate-600 text-sm flex-1 truncate font-medium">Floor Plan PDF</p>
+                    <a href={formData.floorPlan} target="_blank" rel="noreferrer"
+                      className="text-emerald-600 text-xs font-semibold hover:underline">View</a>
+                  </div>
+                ) : (
+                  <div className="rounded-xl overflow-hidden border border-slate-200">
+                    <img src={formData.floorPlan} alt="Current floor plan" className="w-full max-h-40 object-contain bg-slate-50" />
+                  </div>
+                )}
+                <button type="button" onClick={handleRemoveFloorPlan}
+                  className="mt-2 w-full flex items-center justify-center gap-2 border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-500 hover:text-red-500 py-2 rounded-xl text-sm font-semibold transition">
+                  <FaTrash className="text-xs" /> Remove Floor Plan
+                </button>
+              </div>
+            )}
+
+            {/* File picker — shown when no saved plan and no new file chosen */}
+            {!formData.floorPlan && !floorPlanFile && (
+              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition hover:border-green-400 hover:bg-green-50 border-slate-200">
+                <input type="file" accept="image/*,application/pdf" onChange={handleFloorPlanChange} className="hidden" />
+                <div className="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center">
+                  <FaFileAlt className="text-green-500 text-xl" />
+                </div>
+                <p className="text-base font-semibold text-slate-700">Click to choose file</p>
+                <p className="text-sm text-slate-400">Image (PNG, JPG) or PDF</p>
+              </label>
+            )}
+
+            {/* Replace picker — shown when there IS a saved plan but user wants to swap */}
+            {formData.floorPlan && !floorPlanFile && (
+              <label className="flex items-center justify-center gap-2 border border-slate-200 hover:border-green-400 hover:bg-green-50 text-slate-600 hover:text-green-700 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition mt-2">
+                <input type="file" accept="image/*,application/pdf" onChange={handleFloorPlanChange} className="hidden" />
+                Replace Floor Plan
+              </label>
+            )}
+
+            {/* Preview — image */}
+            {floorPlanFile && floorPlanIsImage && floorPlanPreview && !floorPlanUploaded && (
+              <div className="rounded-xl overflow-hidden border border-slate-200 mb-3">
+                <img src={floorPlanPreview} alt="Floor plan preview" className="w-full max-h-48 object-contain bg-slate-50" />
+              </div>
+            )}
+
+            {/* Preview — PDF */}
+            {floorPlanFile && floorPlanIsPDF && !floorPlanUploaded && (
+              <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 mb-3 bg-slate-50">
+                <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                  <FaFilePdf className="text-red-500 text-lg" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-slate-700 font-semibold text-sm truncate">{floorPlanFile.name}</p>
+                  <p className="text-slate-400 text-xs">{(floorPlanFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+              </div>
+            )}
+
+            {/* Upload / Remove buttons for new file */}
+            {floorPlanFile && !floorPlanUploaded && (
+              <div className="flex gap-2">
+                <button type="button" onClick={handleFloorPlanUpload} disabled={floorPlanUploading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-semibold text-sm transition">
+                  <FaCloudUploadAlt />
+                  {floorPlanUploading ? 'Uploading…' : 'Upload Floor Plan'}
+                </button>
+                <button type="button" onClick={handleRemoveFloorPlan}
+                  className="w-10 h-10 flex items-center justify-center border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-xl transition"
+                  aria-label="Remove floor plan">
+                  <FaTrash className="text-sm" />
+                </button>
+              </div>
+            )}
+
+            {floorPlanMsg.text && (
+              <div className={`mt-3 flex items-start gap-2 text-sm rounded-xl p-3 border
+                ${floorPlanMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                {floorPlanMsg.type === 'success'
+                  ? <FaCheckCircle className="mt-0.5 shrink-0 text-green-500" />
+                  : <FaExclamationCircle className="mt-0.5 shrink-0 text-red-400" />}
+                <span>{floorPlanMsg.text}</span>
               </div>
             )}
           </section>
@@ -684,6 +879,7 @@ export default function UpdateListing() {
               <li>Remove outdated photos and add fresh ones for better responses.</li>
               <li>Update the description if the property condition has changed.</li>
               <li>Adjust pricing to stay competitive with similar listings.</li>
+              <li>A floor plan helps buyers understand the layout before visiting.</li>
             </ul>
           </section>
 
@@ -692,8 +888,3 @@ export default function UpdateListing() {
     </main>
   )
 }
-
-
-
-
-

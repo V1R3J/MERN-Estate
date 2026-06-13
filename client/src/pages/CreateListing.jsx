@@ -9,6 +9,7 @@ import {
   FaExclamationCircle, FaCheckCircle, FaRulerCombined, FaUtensils,
   FaDoorOpen, FaSwimmingPool, FaChild, FaUserFriends, FaUser,
   FaTree, FaDumbbell, FaShieldAlt, FaWifi, FaBolt,
+  FaUserTie, FaPhone, FaEnvelope, FaFileAlt, FaFilePdf, FaImage,
 } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
@@ -63,21 +64,31 @@ export default function CreateListing() {
   const [uploadMsg, setUploadMsg]           = useState({ type: '', text: '' })
   const [submitError, setSubmitError]       = useState('')
 
+  // ── Floor plan local state ─────────────────────────────────────────────────
+  const [floorPlanFile, setFloorPlanFile]     = useState(null)          // File object
+  const [floorPlanPreview, setFloorPlanPreview] = useState('')          // object URL (images only)
+  const [floorPlanUploading, setFloorPlanUploading] = useState(false)
+  const [floorPlanMsg, setFloorPlanMsg]       = useState({ type: '', text: '' })
+
   const [formData, setFormData] = useState({
     name: '', description: '', address: '',
     type: '', parking: false, furnished: false, offer: false,
     bedrooms: 1, bathrooms: 1, regularPrice: 0, discountPrice: 0, imageUrls: [],
-    // new fields
+    // space details
     squareFootage: '', halls: '', kitchen: '',
+    // amenities
     swimmingPool: false, playArea: false, gym: false,
     garden: false, security: false, wifi: false, powerBackup: false,
-    suitableFor: '', // 'bachelor' | 'couple' | 'family' | 'any'
+    suitableFor: '',
+    // contact details (new)
+    contactName: '', contactEmail: '', contactPhone: '',
+    // floor plan (new) — stored as URL after upload
+    floorPlan: '',
   })
 
   const isRent    = formData.type === 'rent'
   const hasOffer  = formData.offer
 
-  // ── Fix #1: compute discount % directly from current values, not derived state
   const discountPct = (() => {
     const reg  = Number(formData.regularPrice)
     const disc = Number(formData.discountPrice)
@@ -87,18 +98,16 @@ export default function CreateListing() {
 
   const allUploaded = uploadedUrls.length > 0 && uploadedUrls.length === images.length
 
-  // ── handleChange ─────────────────────────────────────────────────────────────
+  // ── handleChange ──────────────────────────────────────────────────────────
   const handleChange = (e) => {
     const { id, type, value, checked } = e.target
     const val = type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
     setFormData(p => ({ ...p, [id]: val }))
   }
 
-  // ── Fix #2: dedicated type setter so Sale/Rent work in one click regardless
-  //    of which child element inside the button was clicked
   const setType = (type) => setFormData(p => ({ ...p, type }))
 
-  // ── Dropzone ─────────────────────────────────────────────────────────────────
+  // ── Dropzone (listing images) ─────────────────────────────────────────────
   const onDrop = useCallback((accepted) => {
     setUploadMsg({ type: '', text: '' })
     const oversized = accepted.filter(f => f.size > MAX_SIZE_B)
@@ -119,18 +128,18 @@ export default function CreateListing() {
     if (coverIndex >= i && coverIndex > 0) setCoverIndex(c => c - 1)
   }
 
-  // ── Upload ────────────────────────────────────────────────────────────────────
+  // ── Upload listing images ─────────────────────────────────────────────────
   const storeImage = (img, idx) => new Promise(async (resolve, reject) => {
-  try {
-    const tick = setInterval(() =>
-      setUploadProgress(p => ({ ...p, [idx]: Math.min((p[idx] || 0) + 10, 90) })), 150)
-    const res = await storage.createFile(BUCKET_ID, ID.unique(), img)
-    clearInterval(tick)
-    setUploadProgress(p => ({ ...p, [idx]: 100 }))
-    const url = storage.getFileView(BUCKET_ID, res.$id)  // ← only change
-    if (!url) throw new Error(`No URL returned for file ${res.$id}`)
-    resolve(url)
-  } catch (err) { reject(err) }
+    try {
+      const tick = setInterval(() =>
+        setUploadProgress(p => ({ ...p, [idx]: Math.min((p[idx] || 0) + 10, 90) })), 150)
+      const res = await storage.createFile(BUCKET_ID, ID.unique(), img)
+      clearInterval(tick)
+      setUploadProgress(p => ({ ...p, [idx]: 100 }))
+      const url = storage.getFileView(BUCKET_ID, res.$id)
+      if (!url) throw new Error(`No URL returned for file ${res.$id}`)
+      resolve(url)
+    } catch (err) { reject(err) }
   })
 
   const handleImageSubmit = async () => {
@@ -150,7 +159,47 @@ export default function CreateListing() {
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
+  // ── Floor plan handlers ───────────────────────────────────────────────────
+  const handleFloorPlanChange = (e) => {
+    setFloorPlanMsg({ type: '', text: '' })
+    const file = e.target.files[0]
+    if (!file) return
+    const isImage = file.type.startsWith('image/')
+    const isPDF   = file.type === 'application/pdf'
+    if (!isImage && !isPDF)
+      return setFloorPlanMsg({ type: 'error', text: 'Only image or PDF files are accepted.' })
+    if (file.size > 10 * 1024 * 1024)
+      return setFloorPlanMsg({ type: 'error', text: 'Floor plan must be under 10 MB.' })
+    setFloorPlanFile(file)
+    setFloorPlanPreview(isImage ? URL.createObjectURL(file) : '')
+  }
+
+  const handleFloorPlanUpload = async () => {
+    if (!floorPlanFile) return
+    setFloorPlanUploading(true)
+    setFloorPlanMsg({ type: '', text: '' })
+    try {
+      const res = await storage.createFile(BUCKET_ID, ID.unique(), floorPlanFile)
+      const url = storage.getFileView(BUCKET_ID, res.$id)
+      if (!url) throw new Error('No URL returned.')
+      setFormData(p => ({ ...p, floorPlan: url.toString() }))
+      setFloorPlanMsg({ type: 'success', text: 'Floor plan uploaded successfully!' })
+    } catch (err) {
+      setFloorPlanMsg({ type: 'error', text: 'Upload failed: ' + (err.message || 'Please try again.') })
+    } finally {
+      setFloorPlanUploading(false)
+    }
+  }
+
+  const handleRemoveFloorPlan = () => {
+    if (floorPlanPreview) URL.revokeObjectURL(floorPlanPreview)
+    setFloorPlanFile(null)
+    setFloorPlanPreview('')
+    setFloorPlanMsg({ type: '', text: '' })
+    setFormData(p => ({ ...p, floorPlan: '' }))
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitError('')
@@ -165,6 +214,7 @@ export default function CreateListing() {
     ]
     try {
       setLoading(true)
+      // POST /api/listing/create  →  listing.controller.js → createListing
       const res  = await fetch('/api/listing/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,13 +230,12 @@ export default function CreateListing() {
     }
   }
 
-  // ── shared classes ────────────────────────────────────────────────────────────
+  // ── Shared classes ────────────────────────────────────────────────────────
   const inputCls   = 'w-full border border-slate-200 bg-slate-50 rounded-xl py-3 px-4 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition'
   const sectionCls = 'bg-white rounded-2xl shadow-sm border border-slate-200 p-6'
   const h2Cls      = 'text-sm font-semibold text-green-600 uppercase tracking-widest mb-5 flex items-center gap-2'
   const labelCls   = 'block text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1.5'
 
-  // ── Amenity toggle list ───────────────────────────────────────────────────────
   const amenities = [
     { id: 'parking',     Icon: FaCar,          label: 'Parking'       },
     { id: 'furnished',   Icon: FaCouch,        label: 'Furnished'     },
@@ -206,6 +255,10 @@ export default function CreateListing() {
     { value: 'couple',   Icon: FaUserFriends, label: 'Couple'   },
     { value: 'bachelor', Icon: FaUser,        label: 'Bachelor' },
   ]
+
+  const floorPlanUploaded = !!formData.floorPlan
+  const floorPlanIsImage  = floorPlanFile && floorPlanFile.type.startsWith('image/')
+  const floorPlanIsPDF    = floorPlanFile && floorPlanFile.type === 'application/pdf'
 
   return (
     <main className="min-h-screen bg-slate-50 py-10 px-4 text-base">
@@ -256,7 +309,6 @@ export default function CreateListing() {
             <h2 className={h2Cls}><FaCheckSquare className="text-green-400" /> Listing Options</h2>
             <p className={labelCls}>Property Type</p>
 
-            {/* ── Fix #2: onClick calls setType directly, no e.target.id needed ── */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               {[
                 { value: 'sale', Icon: FaTag,  label: 'For Sale', sub: 'One-time purchase' },
@@ -309,7 +361,7 @@ export default function CreateListing() {
             </div>
           </section>
 
-          {/* Room Details + Space (optional) */}
+          {/* Room Details + Space */}
           <section className={sectionCls}>
             <h2 className={h2Cls}><FaBed className="text-green-400" /> Room Details</h2>
             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -318,7 +370,7 @@ export default function CreateListing() {
                 { id: 'bathrooms', Icon: FaBath, label: 'Bathrooms', color: 'text-violet-400' },
               ].map(({ id, Icon, label, color }) => (
                 <div key={id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <label htmlFor={id} className={`flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3`}>
+                  <label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
                     <Icon className={color} /> {label}
                   </label>
                   <input onChange={handleChange} value={formData[id]} type="number" id={id} min="1" max="20" required
@@ -327,7 +379,6 @@ export default function CreateListing() {
               ))}
             </div>
 
-            {/* Optional space fields */}
             <p className={`${labelCls} mt-2 mb-3`}>Space Details <span className="text-slate-400 normal-case font-normal">(optional)</span></p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
@@ -370,7 +421,6 @@ export default function CreateListing() {
               <p className="text-sm text-slate-400 italic">Select a property type above to set pricing.</p>
             )}
 
-            {/* ── Fix #1: discountPct is computed inline from current Number values ── */}
             {hasOffer && (
               <div className="bg-rose-50 border border-rose-100 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
@@ -389,6 +439,67 @@ export default function CreateListing() {
               </div>
             )}
           </section>
+
+          {/* ── Contact Details (NEW) ─────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}><FaUserTie className="text-green-400" /> Contact Details
+              <span className="ml-auto text-xs font-normal text-slate-400 normal-case tracking-normal">Optional</span>
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">
+              These details will be shown to buyers or renters on your listing page.
+            </p>
+            <div className="flex flex-col gap-4">
+              {/* Contact Name */}
+              <div>
+                <label htmlFor="contactName" className={labelCls}>
+                  <FaUserTie className="inline mr-1.5 text-slate-400" /> Contact Name
+                </label>
+                <input
+                  onChange={handleChange}
+                  value={formData.contactName}
+                  type="text"
+                  id="contactName"
+                  placeholder="e.g. Rajesh Sharma"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Contact Phone */}
+              <div>
+                <label htmlFor="contactPhone" className={labelCls}>
+                  <FaPhone className="inline mr-1.5 text-slate-400" /> Phone Number
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">+91</span>
+                  <input
+                    onChange={handleChange}
+                    value={formData.contactPhone}
+                    type="tel"
+                    id="contactPhone"
+                    placeholder="98765 43210"
+                    maxLength={10}
+                    className={`${inputCls} pl-12`}
+                  />
+                </div>
+              </div>
+
+              {/* Contact Email */}
+              <div>
+                <label htmlFor="contactEmail" className={labelCls}>
+                  <FaEnvelope className="inline mr-1.5 text-slate-400" /> Email Address
+                </label>
+                <input
+                  onChange={handleChange}
+                  value={formData.contactEmail}
+                  type="email"
+                  id="contactEmail"
+                  placeholder="e.g. rajesh@example.com"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </section>
+
         </div>
 
         {/* ── RIGHT COLUMN ── */}
@@ -478,6 +589,104 @@ export default function CreateListing() {
             )}
           </section>
 
+          {/* ── Floor Plan (NEW) ─────────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}>
+              <FaFileAlt className="text-green-400" /> Floor Plan
+              <span className="ml-auto text-xs font-normal text-slate-400 normal-case tracking-normal">Optional</span>
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">Upload an image or PDF of the floor plan. Max 10 MB.</p>
+
+            {/* File picker */}
+            {!floorPlanFile && !floorPlanUploaded && (
+              <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition
+                hover:border-green-400 hover:bg-green-50 border-slate-200`}>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleFloorPlanChange}
+                  className="hidden"
+                />
+                <div className="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center">
+                  <FaFileAlt className="text-green-500 text-xl" />
+                </div>
+                <p className="text-base font-semibold text-slate-700">Click to choose file</p>
+                <p className="text-sm text-slate-400">Image (PNG, JPG) or PDF</p>
+              </label>
+            )}
+
+            {/* Preview — image */}
+            {floorPlanFile && floorPlanIsImage && floorPlanPreview && !floorPlanUploaded && (
+              <div className="rounded-xl overflow-hidden border border-slate-200 mb-3">
+                <img src={floorPlanPreview} alt="Floor plan preview" className="w-full max-h-48 object-contain bg-slate-50" />
+              </div>
+            )}
+
+            {/* Preview — PDF */}
+            {floorPlanFile && floorPlanIsPDF && !floorPlanUploaded && (
+              <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 mb-3 bg-slate-50">
+                <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                  <FaFilePdf className="text-red-500 text-lg" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-slate-700 font-semibold text-sm truncate">{floorPlanFile.name}</p>
+                  <p className="text-slate-400 text-xs">{(floorPlanFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+              </div>
+            )}
+
+            {/* Uploaded success state */}
+            {floorPlanUploaded && (
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3">
+                <FaCheckCircle className="text-green-500 shrink-0" />
+                <p className="text-green-700 font-semibold text-sm flex-1">Floor plan uploaded!</p>
+              </div>
+            )}
+
+            {/* Upload / Remove buttons */}
+            {floorPlanFile && !floorPlanUploaded && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleFloorPlanUpload}
+                  disabled={floorPlanUploading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-semibold text-sm transition"
+                >
+                  <FaCloudUploadAlt />
+                  {floorPlanUploading ? 'Uploading…' : 'Upload Floor Plan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveFloorPlan}
+                  className="w-10 h-10 flex items-center justify-center border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-xl transition"
+                  aria-label="Remove floor plan"
+                >
+                  <FaTrash className="text-sm" />
+                </button>
+              </div>
+            )}
+
+            {floorPlanUploaded && (
+              <button
+                type="button"
+                onClick={handleRemoveFloorPlan}
+                className="w-full flex items-center justify-center gap-2 border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-500 hover:text-red-500 py-2.5 rounded-xl text-sm font-semibold transition"
+              >
+                <FaTrash className="text-xs" /> Remove Floor Plan
+              </button>
+            )}
+
+            {floorPlanMsg.text && (
+              <div className={`mt-3 flex items-start gap-2 text-sm rounded-xl p-3 border
+                ${floorPlanMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                {floorPlanMsg.type === 'success'
+                  ? <FaCheckCircle className="mt-0.5 shrink-0 text-green-500" />
+                  : <FaExclamationCircle className="mt-0.5 shrink-0 text-red-400" />}
+                <span>{floorPlanMsg.text}</span>
+              </div>
+            )}
+          </section>
+
           {/* Submit */}
           <section className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl shadow-lg p-6 text-white">
             <h2 className="font-bold text-xl mb-1">Ready to publish?</h2>
@@ -504,6 +713,7 @@ export default function CreateListing() {
               <li>Add at least 4 high-quality photos for better visibility.</li>
               <li>Include nearby landmarks in the description.</li>
               <li>Set a competitive discount to attract more buyers.</li>
+              <li>A floor plan helps buyers understand the layout before visiting.</li>
             </ul>
           </section>
         </div>
