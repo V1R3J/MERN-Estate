@@ -266,7 +266,7 @@ export default function Profile() {
           >
             <FaTrash /> Delete Account
           </button>
-          <Link to={'/MyListings'} className='bg-green-700 w-xl self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-gray-800 transition'>
+          <Link to={'/my-listings'} className='bg-green-700 w-xl self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-gray-800 transition'>
             <FaList /> Show My Listings
           </Link>
         </span>

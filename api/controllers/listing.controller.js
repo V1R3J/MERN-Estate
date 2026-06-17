@@ -105,27 +105,82 @@ export const getListings = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 9;
     const startIndex = parseInt(req.query.startIndex) || 0;
     let offer = req.query.offer;
-
     if (offer === undefined || offer === 'false') {
       offer = { $in: [false, true] };
     }
 
     let furnished = req.query.furnished;
-
     if (furnished === undefined || furnished === 'false') {
       furnished = { $in: [false, true] };
     }
 
     let parking = req.query.parking;
-
     if (parking === undefined || parking === 'false') {
       parking = { $in: [false, true] };
     }
 
     let type = req.query.type;
-
     if (type === undefined || type === 'all') {
       type = { $in: ['sale', 'rent'] };
+    }
+
+    
+    let swimmingPool = req.query.swimmingPool;
+    if (swimmingPool === undefined || swimmingPool === 'false') {
+      swimmingPool = { $in: [false, true] };
+    }
+
+    let gym = req.query.gym;
+    if (gym === undefined || gym === 'false') {
+      gym = { $in: [false, true] };
+    }
+
+    let playArea = req.query.playArea;
+    if (playArea === undefined || playArea === 'false') {
+      playArea = { $in: [false, true] };
+    }
+
+    let garden = req.query.garden;
+    if (garden === undefined || garden === 'false') {
+      garden = { $in: [false, true] };
+    }
+
+    let security = req.query.security;
+    if (security === undefined || security === 'false') {
+      security = { $in: [false, true] };
+    }
+
+    let wifi = req.query.wifi;
+    if (wifi === undefined || wifi === 'false') {
+      wifi = { $in: [false, true] };
+    }
+
+    let powerBackup = req.query.powerBackup;
+    if (powerBackup === undefined || powerBackup === 'false') {
+      powerBackup = { $in: [false, true] };
+    }
+
+   
+    let suitableForFilter = {};
+    const suitableFor = req.query.suitableFor;
+    if (suitableFor && suitableFor !== 'all') {
+      suitableForFilter = { suitableFor };
+    }
+
+    // ── price range filter ─────────────────────────────────────────────────
+    const minPrice = parseInt(req.query.minPrice);
+    const maxPrice = parseInt(req.query.maxPrice);
+    let priceFilter = {};
+    if (!isNaN(minPrice) || !isNaN(maxPrice)) {
+      priceFilter.regularPrice = {};
+      if (!isNaN(minPrice)) priceFilter.regularPrice.$gte = minPrice;
+      if (!isNaN(maxPrice)) priceFilter.regularPrice.$lte = maxPrice;
+    }
+
+    
+    let bedroomsFilter = {};
+    if (req.query.bedrooms) {
+      bedroomsFilter = { bedrooms: { $gte: parseInt(req.query.bedrooms) } };
     }
 
     const searchTerm = req.query.searchTerm || '';
@@ -138,6 +193,16 @@ export const getListings = async (req, res, next) => {
       furnished,
       parking,
       type,
+      swimmingPool,
+      gym,
+      playArea,
+      garden,
+      security,
+      wifi,
+      powerBackup,
+      ...suitableForFilter,
+      ...priceFilter,
+      ...bedroomsFilter,
     })
       .sort({ [sort]: order })
       .limit(limit)
