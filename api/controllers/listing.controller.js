@@ -183,6 +183,13 @@ export const getListings = async (req, res, next) => {
       bedroomsFilter = { bedrooms: { $gte: parseInt(req.query.bedrooms) } };
     }
 
+    // ── location filter (new) ────────────────────────────────────────────────
+    // Exact match — values come from the fixed state/city dataset on the
+    // frontend (indianLocations.js), so no regex/partial matching is needed.
+    let locationFilter = {};
+    if (req.query.state) locationFilter.state = req.query.state;
+    if (req.query.city)  locationFilter.city  = req.query.city;
+
     const searchTerm = req.query.searchTerm || '';
     const sort = req.query.sort || 'createdAt';
     const order = req.query.order || 'desc';
@@ -203,6 +210,7 @@ export const getListings = async (req, res, next) => {
       ...suitableForFilter,
       ...priceFilter,
       ...bedroomsFilter,
+      ...locationFilter,
     })
       .sort({ [sort]: order })
       .limit(limit)

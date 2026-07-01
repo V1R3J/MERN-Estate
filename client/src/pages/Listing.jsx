@@ -1,16 +1,15 @@
-// Route: GET /api/listing/get/:listingId  →  listing.controller.js → getListing
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import { Navigation, Pagination, Thumbs } from "swiper/modules";
 import "swiper/css/bundle";
 import {
   FaBed, FaBath, FaParking, FaCouch, FaSwimmingPool, FaDumbbell,
   FaChild, FaLeaf, FaShieldAlt, FaWifi, FaBolt, FaRulerCombined,
   FaDoorOpen, FaUtensils, FaMapMarkerAlt, FaTag, FaUsers, FaShareAlt,
-  FaTimes, FaEye, FaHome, FaLink, FaWhatsapp, FaFacebookF, FaTwitter,
+  FaTimes, FaHome, FaLink, FaWhatsapp, FaFacebookF, FaTwitter,
   FaPercentage, FaStar, FaBuilding, FaKey, FaPhone, FaEnvelope,
-  FaUserTie, FaFileAlt, FaExternalLinkAlt, FaExpand,
+  FaUserTie, FaFileAlt, FaExternalLinkAlt, FaExpand, FaLock,
 } from "react-icons/fa";
 import { MdOutlineBedroomParent, MdOutlineBathtub, MdOutlineKitchen } from "react-icons/md";
 
@@ -114,89 +113,171 @@ function ShareModal({ url, name, onClose }) {
   );
 }
 
-// ── Image Collage + Full-screen Slider ────────────────────────────────────────
-function ImageSection({ imageUrls, name }) {
+// ── Full-screen Slider (with thumbnail strip — replaces the old plain swiper) ─
+function FullscreenSlider({ imageUrls, name, startIdx, onClose }) {
+  const [thumbsSwiper, setThumbsSwiper] = useState(null);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+        <span className="text-white font-semibold text-sm truncate">{name} — All Photos</span>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition shrink-0"
+          aria-label="Close"
+        >
+          <FaTimes />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 flex items-center justify-center px-2">
+        <Swiper
+          modules={[Navigation, Thumbs]}
+          navigation
+          thumbs={{ swiper: thumbsSwiper }}
+          loop={imageUrls.length > 1}
+          initialSlide={startIdx}
+          className="w-full h-full max-h-[78vh]"
+        >
+          {imageUrls.map((url, idx) => (
+            <SwiperSlide key={idx} className="flex items-center justify-center">
+              <img
+                src={url}
+                alt={`${name} — photo ${idx + 1}`}
+                className="max-h-[78vh] max-w-full object-contain rounded-xl"
+              />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
+
+      {imageUrls.length > 1 && (
+        <div className="px-4 py-3 shrink-0">
+          <Swiper
+            modules={[Thumbs]}
+            onSwiper={setThumbsSwiper}
+            slidesPerView="auto"
+            spaceBetween={8}
+            watchSlidesProgress
+            className="thumb-strip"
+          >
+            {imageUrls.map((url, idx) => (
+              <SwiperSlide key={idx} style={{ width: 76 }}>
+                <img
+                  src={url}
+                  alt=""
+                  className="w-[76px] h-[52px] object-cover rounded-lg cursor-pointer opacity-50 hover:opacity-100 transition [.swiper-slide-thumb-active_&]:opacity-100 [.swiper-slide-thumb-active_&]:ring-2 [.swiper-slide-thumb-active_&]:ring-emerald-400"
+                />
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dynamic Photo Collage ─────────────────────────────────────────────────────
+// Layout adapts to how many photos actually exist instead of forcing a fixed
+// 4-cell grid that looks empty/broken with 1-3 photos.
+function PhotoCollage({ imageUrls, name }) {
   const [sliderOpen, setSliderOpen] = useState(false);
-  const [startIdx,   setStartIdx]   = useState(0);
+  const [startIdx, setStartIdx]   = useState(0);
 
   const open = (idx) => { setStartIdx(idx); setSliderOpen(true); };
-  const preview   = imageUrls.slice(0, 3);
-  const remaining = imageUrls.length - 3;
+
+  if (!imageUrls?.length) {
+    return (
+      <div className="h-[340px] md:h-[420px] rounded-2xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-slate-400">
+        <FaHome className="text-3xl mb-2" />
+        <p className="text-sm font-medium">No photos uploaded yet</p>
+      </div>
+    );
+  }
+
+  const Tile = ({ idx, className = "" }) => (
+    <div
+      className={`relative cursor-pointer group overflow-hidden ${className}`}
+      onClick={() => open(idx)}
+    >
+      <img
+        src={imageUrls[idx]}
+        alt={`${name} — photo ${idx + 1}`}
+        className="w-full h-full object-cover group-hover:brightness-90 transition duration-300"
+      />
+    </div>
+  );
+
+  const count = imageUrls.length;
+  const remaining = count - 4;
 
   return (
     <>
-      <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[340px] md:h-[420px] rounded-2xl overflow-hidden">
-        {/* Main big image */}
-        <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => open(0)}>
-          {preview[0] && (
-            <img src={preview[0]} alt={`${name} main`}
-              className="w-full h-full object-cover group-hover:brightness-90 transition duration-300" />
-          )}
-          <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition">
-            <span className="bg-black/60 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-              <FaExpand className="text-[10px]" /> View all
-            </span>
+      {/* 1 photo — single full-width hero */}
+      {count === 1 && (
+        <div className="h-[340px] md:h-[420px] rounded-2xl overflow-hidden">
+          <Tile idx={0} className="w-full h-full" />
+        </div>
+      )}
+
+      {/* 2 photos — even side-by-side split */}
+      {count === 2 && (
+        <div className="grid grid-cols-2 gap-2 h-[340px] md:h-[420px] rounded-2xl overflow-hidden">
+          <Tile idx={0} />
+          <Tile idx={1} />
+        </div>
+      )}
+
+      {/* 3 photos — big hero + two stacked */}
+      {count === 3 && (
+        <div className="grid grid-cols-3 gap-2 h-[340px] md:h-[420px] rounded-2xl overflow-hidden">
+          <Tile idx={0} className="col-span-2" />
+          <div className="grid grid-rows-2 gap-2">
+            <Tile idx={1} />
+            <Tile idx={2} />
           </div>
         </div>
+      )}
 
-        {/* Second image */}
-        <div className="col-span-2 row-span-1 relative cursor-pointer group" onClick={() => open(1)}>
-          {preview[1] && (
-            <img src={preview[1]} alt={`${name} 2`}
-              className="w-full h-full object-cover group-hover:brightness-90 transition duration-300" />
-          )}
+      {/* 4+ photos — big hero + 2x small grid, last tile shows overflow count */}
+      {count >= 4 && (
+        <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[340px] md:h-[420px] rounded-2xl overflow-hidden">
+          <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => open(0)}>
+            <Tile idx={0} className="w-full h-full" />
+          </div>
+          <Tile idx={1} className="col-span-2 row-span-1" />
+          <div className="col-span-2 row-span-1 relative">
+            <Tile idx={3} className="w-full h-full" />
+            {remaining > 0 && (
+              <div
+                className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center cursor-pointer"
+                onClick={() => open(3)}
+              >
+                <span className="text-white text-2xl font-bold">+{remaining}</span>
+                <span className="text-white/80 text-xs mt-0.5">more photos</span>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* Third image with overflow count */}
-        <div className="col-span-2 row-span-1 relative cursor-pointer group" onClick={() => open(2)}>
-          {preview[2] && (
-            <img src={preview[2]} alt={`${name} 3`}
-              className="w-full h-full object-cover group-hover:brightness-75 transition duration-300" />
-          )}
-          {remaining > 0 && (
-            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
-              <span className="text-white text-2xl font-bold">+{remaining}</span>
-              <span className="text-white/80 text-xs mt-0.5">more photos</span>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* "View all" pill, shown for any multi-photo listing */}
+      {count > 1 && (
+        <button
+          onClick={() => open(0)}
+          className="mt-2 inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-emerald-400 text-slate-600 hover:text-emerald-600 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition"
+        >
+          <FaExpand className="text-[10px]" /> View all {count} photos
+        </button>
+      )}
 
-      {/* Full-screen Swiper */}
       {sliderOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-            <span className="text-white font-semibold text-sm">{name} — All Photos</span>
-            <button
-              onClick={() => setSliderOpen(false)}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
-              aria-label="Close"
-            >
-              <FaTimes />
-            </button>
-          </div>
-          <div className="flex-1 flex items-center">
-            <Swiper
-              modules={[Navigation, Pagination, Autoplay]}
-              navigation
-              pagination={{ clickable: true, type: "fraction" }}
-              autoplay={{ delay: 4000, disableOnInteraction: true, pauseOnMouseEnter: true }}
-              loop={imageUrls.length > 1}
-              initialSlide={startIdx}
-              className="w-full h-full"
-            >
-              {imageUrls.map((url, idx) => (
-                <SwiperSlide key={idx} className="flex items-center justify-center">
-                  <img
-                    src={url}
-                    alt={`${name} — photo ${idx + 1}`}
-                    className="max-h-[80vh] max-w-full object-contain rounded-xl"
-                  />
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
-        </div>
+        <FullscreenSlider
+          imageUrls={imageUrls}
+          name={name}
+          startIdx={startIdx}
+          onClose={() => setSliderOpen(false)}
+        />
       )}
     </>
   );
@@ -231,12 +312,97 @@ function PropertyMap({ address }) {
   );
 }
 
+// ── Contact Card — gated behind "Contact Owner" click ────────────────────────
+function ContactCard({ listingId, contactName, contactEmail, contactPhone }) {
+  const [revealed, setRevealed] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+
+  const hasContact = contactName || contactEmail || contactPhone;
+
+  const handleReveal = async () => {
+    setRevealed(true);
+    setLoading(true);
+    try {
+      // fire-and-forget counter increment — UI doesn't wait on this
+      // PATCH /api/listing/contact/:id  →  insights.controller.js → incrementContactClick
+      await fetch(`/api/listing/contact/${listingId}`, { method: "PATCH" });
+    } catch {
+      // silently ignore — reveal already happened, click tracking is non-critical
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!hasContact) return null;
+
+  if (!revealed) {
+    return (
+      <button
+        onClick={handleReveal}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition text-white font-bold py-3.5 rounded-xl shadow-sm text-sm flex items-center justify-center gap-2"
+      >
+        <FaUserTie /> Contact Owner
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <FaUserTie className="text-emerald-500" />
+        <h2 className="font-bold text-slate-800 text-base">Contact Details</h2>
+        {loading && (
+          <span className="ml-auto w-3.5 h-3.5 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+        )}
+      </div>
+      <div className="space-y-3">
+        {contactName && (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+              <FaUserTie className="text-emerald-600 text-sm" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-[10px] uppercase tracking-wider">Name</p>
+              <p className="text-slate-700 font-semibold text-sm">{contactName}</p>
+            </div>
+          </div>
+        )}
+        {contactPhone && (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+              <FaPhone className="text-emerald-600 text-sm" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-[10px] uppercase tracking-wider">Phone</p>
+              <a href={`tel:${contactPhone}`} className="text-emerald-600 hover:text-emerald-700 font-semibold text-sm">
+                {contactPhone}
+              </a>
+            </div>
+          </div>
+        )}
+        {contactEmail && (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+              <FaEnvelope className="text-emerald-600 text-sm" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-[10px] uppercase tracking-wider">Email</p>
+              <a href={`mailto:${contactEmail}`} className="text-emerald-600 hover:text-emerald-700 font-semibold text-sm break-all">
+                {contactEmail}
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Listing() {
   const [listing,       setListing]       = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState(false);
-  const [previewBanner, setPreviewBanner] = useState(true);
   const [shareOpen,     setShareOpen]     = useState(false);
   const [floorPlanOpen, setFloorPlanOpen] = useState(false);
   const params = useParams();
@@ -282,13 +448,12 @@ export default function Listing() {
   if (!listing) return null;
 
   const {
-    name, description, address, type,
+    _id, name, description, address, type,
     regularPrice, discountPrice, offer,
     bedrooms, bathrooms, imageUrls,
     parking, furnished, swimmingPool, gym,
     playArea, garden, security, wifi, powerBackup,
     squareFootage, halls, kitchen, suitableFor,
-    // New fields
     contactName, contactEmail, contactPhone,
     floorPlan,
   } = listing;
@@ -309,31 +474,10 @@ export default function Listing() {
     { icon: FaBolt,         label: "Power Backup",   active: powerBackup  },
   ].filter((a) => a.active);
 
-  // Determine if contact section should show
-  const hasContact = contactName || contactEmail || contactPhone;
-  // Detect if floorPlan is a PDF
   const isFloorPlanPDF = floorPlan && floorPlan.toLowerCase().includes(".pdf");
 
   return (
     <main className="bg-slate-50 min-h-screen pb-20">
-
-      {/* ── Preview Banner ── */}
-      {previewBanner && (
-        <div className="bg-emerald-600 text-white flex items-center justify-between px-4 py-2.5 gap-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <FaEye className="shrink-0" />
-            <span>This is how your listing will be seen by buyers &amp; renters</span>
-          </div>
-          <button
-            onClick={() => setPreviewBanner(false)}
-            className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center shrink-0 transition"
-            aria-label="Close preview banner"
-          >
-            <FaTimes className="text-sm" />
-          </button>
-        </div>
-      )}
-
       <div className="max-w-5xl mx-auto px-4 pt-8 space-y-7">
 
         {/* ── Page title row ── */}
@@ -366,8 +510,8 @@ export default function Listing() {
           </button>
         </div>
 
-        {/* ── Image Collage ── */}
-        <ImageSection imageUrls={imageUrls} name={name} />
+        {/* ── Dynamic Photo Collage ── */}
+        <PhotoCollage imageUrls={imageUrls} name={name} />
 
         {/* ── Two-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -375,28 +519,24 @@ export default function Listing() {
           {/* ── Left column ── */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* ── Property Details Box (beds + baths + sqft + extras) ── */}
+            {/* ── Property Details Box ── */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-5">
                 <FaBuilding className="text-emerald-500" />
                 <h2 className="font-bold text-slate-800 text-lg">Property Details</h2>
               </div>
 
-              {/* Primary stats — always shown */}
               <div className="grid grid-cols-3 gap-3 mb-4">
-                {/* Bedrooms */}
                 <div className="flex flex-col items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl py-4">
                   <MdOutlineBedroomParent className="text-emerald-600 text-2xl" />
                   <span className="text-slate-800 font-extrabold text-xl">{bedrooms}</span>
                   <span className="text-slate-500 text-xs uppercase tracking-wide">Bedrooms</span>
                 </div>
-                {/* Bathrooms */}
                 <div className="flex flex-col items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-xl py-4">
                   <MdOutlineBathtub className="text-blue-600 text-2xl" />
                   <span className="text-slate-800 font-extrabold text-xl">{bathrooms}</span>
                   <span className="text-slate-500 text-xs uppercase tracking-wide">Bathrooms</span>
                 </div>
-                {/* Sq. Ft. — always show slot, dash if missing */}
                 <div className="flex flex-col items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl py-4">
                   <FaRulerCombined className="text-amber-600 text-2xl" />
                   <span className="text-slate-800 font-extrabold text-xl">
@@ -406,7 +546,6 @@ export default function Listing() {
                 </div>
               </div>
 
-              {/* Secondary details — only shown if value exists */}
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
                 {halls != null && (
                   <div className="flex items-center justify-between px-4 py-3">
@@ -470,7 +609,7 @@ export default function Listing() {
               </div>
             )}
 
-            {/* ── Floor Plan — only if uploaded ── */}
+            {/* ── Floor Plan ── */}
             {floorPlan && (
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
@@ -479,7 +618,6 @@ export default function Listing() {
                 </div>
 
                 {isFloorPlanPDF ? (
-                  // PDF: show a link card
                   <a
                     href={floorPlan}
                     target="_blank"
@@ -498,7 +636,6 @@ export default function Listing() {
                     <FaExternalLinkAlt className="text-slate-400 group-hover:text-emerald-500 transition shrink-0" />
                   </a>
                 ) : (
-                  // Image: show thumbnail, click to enlarge
                   <>
                     <div
                       className="relative cursor-pointer group rounded-xl overflow-hidden border border-slate-200"
@@ -516,7 +653,6 @@ export default function Listing() {
                       </div>
                     </div>
 
-                    {/* Floor plan lightbox */}
                     {floorPlanOpen && (
                       <div
                         className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
@@ -578,7 +714,6 @@ export default function Listing() {
 
                 <hr className="my-4 border-slate-100" />
 
-                {/* Quick summary in price card */}
                 <div className="space-y-2.5 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-slate-500"><FaBed className="text-slate-400" /> Bedrooms</span>
@@ -602,9 +737,14 @@ export default function Listing() {
 
                 <hr className="my-4 border-slate-100" />
 
-                <button className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition text-white font-bold py-3.5 rounded-xl shadow-sm text-sm">
-                  Contact Owner
-                </button>
+                {/* ── Contact Owner button → reveals contact details inline on click ── */}
+                <ContactCard
+                  listingId={_id}
+                  contactName={contactName}
+                  contactEmail={contactEmail}
+                  contactPhone={contactPhone}
+                />
+
                 <button
                   onClick={() => setShareOpen(true)}
                   className="w-full mt-2 flex items-center justify-center gap-2 border border-slate-200 hover:border-emerald-400 text-slate-700 hover:text-emerald-600 font-semibold py-3 rounded-xl transition text-sm"
@@ -622,61 +762,6 @@ export default function Listing() {
                     <p className="text-amber-600 text-xs mt-0.5">
                       Save {formatINR(savedAmount)} — limited time offer.
                     </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Contact Details — only if at least one field exists ── */}
-              {hasContact && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <FaUserTie className="text-emerald-500" />
-                    <h2 className="font-bold text-slate-800 text-base">Contact Details</h2>
-                  </div>
-                  <div className="space-y-3">
-                    {contactName && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                          <FaUserTie className="text-emerald-600 text-sm" />
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-[10px] uppercase tracking-wider">Name</p>
-                          <p className="text-slate-700 font-semibold text-sm">{contactName}</p>
-                        </div>
-                      </div>
-                    )}
-                    {contactPhone && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                          <FaPhone className="text-emerald-600 text-sm" />
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-[10px] uppercase tracking-wider">Phone</p>
-                          <a
-                            href={`tel:${contactPhone}`}
-                            className="text-emerald-600 hover:text-emerald-700 font-semibold text-sm"
-                          >
-                            {contactPhone}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {contactEmail && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                          <FaEnvelope className="text-emerald-600 text-sm" />
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-[10px] uppercase tracking-wider">Email</p>
-                          <a
-                            href={`mailto:${contactEmail}`}
-                            className="text-emerald-600 hover:text-emerald-700 font-semibold text-sm break-all"
-                          >
-                            {contactEmail}
-                          </a>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

@@ -6,8 +6,9 @@ import {
   FaWifi, FaBolt, FaSlidersH, FaTimes, FaArrowRight,
   FaHome, FaSortAmountDown, FaMapMarkerAlt,
   FaUserFriends, FaUser, FaChevronDown, FaFilter,
-  FaChevronLeft, FaChevronRight, FaExpand,
+  FaChevronLeft, FaChevronRight, FaExpand, FaCity,
 } from 'react-icons/fa';
+import { INDIAN_STATES, getCitiesForState } from '../data/indianLocations';
 
 // ── Rupee helpers ──────────────────────────────────────────────────────────────
 const toShortINR = (n) => {
@@ -38,7 +39,7 @@ const SUITABLE_OPTIONS = [
   { value: 'bachelor', Icon: FaUser,        label: 'Bachelor' },
 ];
 
-// ── Default sidebar state — mirrors your original shape + new fields ───────────
+// ── Default sidebar state — mirrors your original shape + location fields ─────
 const DEFAULT_SIDEBAR = {
   searchTerm:   '',
   type:         'all',
@@ -47,7 +48,7 @@ const DEFAULT_SIDEBAR = {
   offer:        false,
   sort:         'createdAt',
   order:        'desc',
-  // new amenities
+  // amenities
   swimmingPool: false,
   gym:          false,
   playArea:     false,
@@ -55,11 +56,14 @@ const DEFAULT_SIDEBAR = {
   security:     false,
   wifi:         false,
   powerBackup:  false,
-  // new filters
+  // filters
   suitableFor:  'all',
   minPrice:     '',
   maxPrice:     '',
   bedrooms:     '',
+  // location (new)
+  state:        '',
+  city:         '',
 };
 
 // ── Image gallery inside card ─────────────────────────────────────────────────
@@ -96,7 +100,7 @@ function ImageGallery({ images, title }) {
   );
 }
 
-// ── Listing card ──────────────────────────────────────────────────────────────
+// ── Listing card — now shows a city badge ─────────────────────────────────────
 function ListingCard({ listing }) {
   const amenityKeys = Object.keys(AMENITY_ICONS).filter(k => listing[k]);
   const isRent = listing.type === 'rent';
@@ -118,6 +122,12 @@ function ListingCard({ listing }) {
             </span>
           )}
         </div>
+        {/* City badge — top right */}
+        {listing.city && (
+          <span className="absolute top-3 right-3 flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-white/90 text-slate-700 shadow-sm pointer-events-none">
+            <FaCity className="text-green-500 text-[10px]" /> {listing.city}
+          </span>
+        )}
         {/* Arrow CTA */}
         <div className="absolute bottom-3 right-3 bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-200 pointer-events-none">
           <FaArrowRight className="text-xs" />
@@ -132,6 +142,7 @@ function ListingCard({ listing }) {
         <p className="flex items-center gap-1.5 text-slate-400 text-xs mb-3 truncate">
           <FaMapMarkerAlt className="text-green-400 shrink-0" />
           {listing.address}
+          {listing.city && <span className="text-slate-300">· {listing.city}{listing.state ? `, ${listing.state}` : ''}</span>}
         </p>
 
         {/* Stats */}
@@ -212,8 +223,48 @@ function FilterPanel({ data, onChange, onSubmit, onReset }) {
     { id: 'powerBackup',  Icon: FaBolt,         label: 'Power Backup'  },
   ];
 
+  // Cities available for the currently selected state in this panel's data
+  const availableCities = data.state ? getCitiesForState(data.state) : [];
+
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
+
+      {/* Location — State + City (new) */}
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Location</p>
+        <div className="flex flex-col gap-2">
+          <div className="relative">
+            <select
+              id="state"
+              value={data.state}
+              onChange={onChange}
+              className={`${inputCls} appearance-none pr-8 cursor-pointer`}
+            >
+              <option value="">All States</option>
+              {INDIAN_STATES.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              id="city"
+              value={data.city}
+              onChange={onChange}
+              disabled={!data.state}
+              className={`${inputCls} appearance-none pr-8 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed`}
+            >
+              <option value="">{data.state ? 'All Cities' : 'Select a state first'}</option>
+              {availableCities.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
+          </div>
+        </div>
+      </div>
 
       {/* Type */}
       <div>
@@ -338,7 +389,7 @@ export default function Search() {
   const navigate  = useNavigate();
   const location  = useLocation();
 
-  // Your original sidebardata shape, extended with new fields
+  // Your original sidebardata shape, extended with location fields
   const [sidebardata, setSidebardata] = useState(DEFAULT_SIDEBAR);
   // Drawer holds a draft copy until Apply is tapped on mobile
   const [drawerData, setDrawerData]   = useState(DEFAULT_SIDEBAR);
@@ -353,11 +404,11 @@ export default function Search() {
     if (['searchTerm', 'sort', 'order'].includes(k)) return false;
     if (k === 'type' && v === 'all') return false;
     if (k === 'suitableFor' && v === 'all') return false;
-    if (['minPrice', 'maxPrice', 'bedrooms'].includes(k)) return v !== '';
+    if (['minPrice', 'maxPrice', 'bedrooms', 'state', 'city'].includes(k)) return v !== '';
     return v === true;
   }).length;
 
-  // ── Your original useEffect, extended with new params ─────────────────────
+  // ── Your original useEffect, extended with location params ────────────────
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
 
@@ -380,6 +431,8 @@ export default function Search() {
       minPrice:     urlParams.get('minPrice')      || '',
       maxPrice:     urlParams.get('maxPrice')      || '',
       bedrooms:     urlParams.get('bedrooms')      || '',
+      state:        urlParams.get('state')         || '',
+      city:         urlParams.get('city')          || '',
     };
 
     setSidebardata(parsed);
@@ -398,12 +451,21 @@ export default function Search() {
     fetchListings();
   }, [location.search]);
 
-  // ── Your original handleChange, extended ──────────────────────────────────
+  // ── Your original handleChange, extended with state/city ───────────────────
   const handleChange = (e, target = sidebardata, setter = setSidebardata) => {
     const { id, value, checked } = e.target;
 
     if (['all', 'rent', 'sale'].includes(id)) {
       setter(p => ({ ...p, type: id }));
+      return;
+    }
+    if (id === 'state') {
+      // changing state clears city, since the old city may not belong to it
+      setter(p => ({ ...p, state: value, city: '' }));
+      return;
+    }
+    if (id === 'city') {
+      setter(p => ({ ...p, city: value }));
       return;
     }
     if (id === 'suitableFor') {
@@ -458,6 +520,8 @@ export default function Search() {
   // Remove a single active filter chip
   const removeFilter = (key, resetVal = false) => {
     const updated = { ...sidebardata, [key]: resetVal };
+    // clearing state should also clear city
+    if (key === 'state') updated.city = '';
     setSidebardata(updated);
     navigate(`/search?${buildParams(updated)}`);
   };
@@ -549,6 +613,9 @@ export default function Search() {
                   {sidebardata.searchTerm && (
                     <span> for "<span className="text-green-600">{sidebardata.searchTerm}</span>"</span>
                   )}
+                  {sidebardata.city && (
+                    <span> in <span className="text-green-600">{sidebardata.city}</span></span>
+                  )}
                 </>
               )}
             </p>
@@ -561,6 +628,18 @@ export default function Search() {
           {/* Active filter chips */}
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
+              {sidebardata.state && (
+                <span className="flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                  <FaMapMarkerAlt className="text-[10px]" /> {sidebardata.state}
+                  <button type="button" onClick={() => removeFilter('state', '')}><FaTimes className="text-[10px]" /></button>
+                </span>
+              )}
+              {sidebardata.city && (
+                <span className="flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                  <FaCity className="text-[10px]" /> {sidebardata.city}
+                  <button type="button" onClick={() => removeFilter('city', '')}><FaTimes className="text-[10px]" /></button>
+                </span>
+              )}
               {sidebardata.type !== 'all' && (
                 <span className="flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
                   {sidebardata.type === 'rent' ? 'For Rent' : 'For Sale'}

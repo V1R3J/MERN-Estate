@@ -10,9 +10,11 @@ import {
   FaDoorOpen, FaSwimmingPool, FaChild, FaUserFriends, FaUser,
   FaTree, FaDumbbell, FaShieldAlt, FaWifi, FaBolt, FaEdit,
   FaSave, FaUserTie, FaPhone, FaEnvelope, FaFileAlt, FaFilePdf,
+  FaCity, FaChevronDown, FaSearch, FaLock,
 } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
+import { INDIAN_STATES, getCitiesForState } from '../data/indianLocations'
 
 const MAX_IMAGES  = 6
 const MAX_SIZE_MB = 4
@@ -51,6 +53,73 @@ const PriceDisplay = ({ value, color = 'text-green-600' }) => {
   )
 }
 
+// ── City autocomplete — same component used in CreateListing ──────────────────
+function CityAutocomplete({ state, value, onChange, disabled }) {
+  const [query, setQuery]   = useState(value || '')
+  const [open, setOpen]     = useState(false)
+  const [highlight, setHighlight] = useState(0)
+
+  const cities = state ? getCitiesForState(state) : []
+  const filtered = query
+    ? cities.filter(c => c.toLowerCase().includes(query.toLowerCase()))
+    : cities
+
+  useEffect(() => { setQuery(value || '') }, [value])
+
+  const selectCity = (city) => {
+    onChange(city)
+    setQuery(city)
+    setOpen(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!open) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtered.length - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
+    if (e.key === 'Enter')     { e.preventDefault(); if (filtered[highlight]) selectCity(filtered[highlight]) }
+    if (e.key === 'Escape')    setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+        <input
+          type="text"
+          disabled={disabled}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(0); if (e.target.value === '') onChange('') }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={handleKeyDown}
+          placeholder={disabled ? 'Select a state first' : 'Type to search city…'}
+          className="w-full border border-slate-200 bg-slate-50 disabled:bg-slate-100 disabled:cursor-not-allowed rounded-xl py-3 pl-11 pr-4 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition"
+        />
+        {value && (
+          <FaCheckCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
+        )}
+      </div>
+
+      {open && !disabled && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1.5 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg py-1.5">
+          {filtered.map((city, i) => (
+            <li
+              key={city}
+              onMouseDown={() => selectCity(city)}
+              onMouseEnter={() => setHighlight(i)}
+              className={`px-4 py-2.5 text-sm cursor-pointer flex items-center gap-2.5
+                ${i === highlight ? 'bg-green-50 text-green-700' : 'text-slate-700 hover:bg-slate-50'}`}
+            >
+              <FaCity className={i === highlight ? 'text-green-500' : 'text-slate-300'} />
+              {city}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function UpdateListing() {
   const navigate    = useNavigate()
   const params      = useParams()
@@ -59,6 +128,8 @@ export default function UpdateListing() {
   // ── fetch state ────────────────────────────────────────────────────────────
   const [fetchLoading, setFetchLoading] = useState(true)
   const [fetchError,   setFetchError]   = useState('')
+  // true once we've confirmed the logged-in user owns this listing
+  const [authorized,   setAuthorized]   = useState(false)
 
   // ── existing images (already in DB as URLs) ────────────────────────────────
   const [existingUrls, setExistingUrls] = useState([])
@@ -71,7 +142,7 @@ export default function UpdateListing() {
   const [uploading,       setUploading]       = useState(false)
   const [uploadMsg,       setUploadMsg]       = useState({ type: '', text: '' })
 
-  // ── floor plan state (new) ─────────────────────────────────────────────────
+  // ── floor plan state ───────────────────────────────────────────────────────
   const [floorPlanFile,      setFloorPlanFile]      = useState(null)
   const [floorPlanPreview,   setFloorPlanPreview]   = useState('')
   const [floorPlanUploading, setFloorPlanUploading] = useState(false)
@@ -80,15 +151,15 @@ export default function UpdateListing() {
   // ── form / submit ──────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     name: '', description: '', address: '',
+    // location
+    state: '', city: '',
     type: '', parking: false, furnished: false, offer: false,
     bedrooms: 1, bathrooms: 1, regularPrice: 0, discountPrice: 0, imageUrls: [],
     squareFootage: '', halls: '', kitchen: '',
     swimmingPool: false, playArea: false, gym: false,
     garden: false, security: false, wifi: false, powerBackup: false,
     suitableFor: '',
-    // contact details (new)
     contactName: '', contactEmail: '', contactPhone: '',
-    // floor plan (new)
     floorPlan: '',
   })
   const [loading,     setLoading]     = useState(false)
@@ -112,8 +183,14 @@ export default function UpdateListing() {
   const floorPlanIsImage  = floorPlanFile && floorPlanFile.type.startsWith('image/')
   const floorPlanIsPDF    = floorPlanFile && floorPlanFile.type === 'application/pdf'
 
-  // ── fetch listing on mount ─────────────────────────────────────────────────
+  // ── fetch listing on mount + OWNERSHIP CHECK ───────────────────────────────
   // GET /api/listing/get/:listingId  →  listing.controller.js → getListing
+  //
+  // This is a page-level guard: the backend's updateListing controller already
+  // rejects saves from non-owners (req.user.id !== listing.userRef), but without
+  // this check a non-owner could still open the page and see/edit the form
+  // before hitting that wall on submit. We check ownership as soon as the
+  // listing loads and block the page entirely if it doesn't match.
   useEffect(() => {
     const fetchListing = async () => {
       try {
@@ -124,10 +201,21 @@ export default function UpdateListing() {
           setFetchError(data.message || 'Failed to load listing.')
           return
         }
+
+        // ── Ownership check ──
+        if (!currentUser || currentUser._id !== data.userRef) {
+          setFetchError('You do not have permission to edit this listing.')
+          setAuthorized(false)
+          return
+        }
+        setAuthorized(true)
+
         setFormData({
           name:          data.name          ?? '',
           description:   data.description   ?? '',
           address:       data.address       ?? '',
+          state:         data.state         ?? '',
+          city:          data.city          ?? '',
           type:          data.type          ?? '',
           parking:       data.parking       ?? false,
           furnished:     data.furnished     ?? false,
@@ -148,11 +236,9 @@ export default function UpdateListing() {
           wifi:          data.wifi          ?? false,
           powerBackup:   data.powerBackup   ?? false,
           suitableFor:   data.suitableFor   ?? '',
-          // contact details
           contactName:   data.contactName   ?? '',
           contactEmail:  data.contactEmail  ?? '',
           contactPhone:  data.contactPhone  ?? '',
-          // floor plan
           floorPlan:     data.floorPlan     ?? '',
         })
         setExistingUrls(data.imageUrls ?? [])
@@ -163,7 +249,7 @@ export default function UpdateListing() {
       }
     }
     fetchListing()
-  }, [params.listingId])
+  }, [params.listingId, currentUser])
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleChange = (e) => {
@@ -173,6 +259,16 @@ export default function UpdateListing() {
   }
 
   const setType = (type) => setFormData(p => ({ ...p, type }))
+
+  // ── Location handlers ──────────────────────────────────────────────────────
+  const handleStateChange = (e) => {
+    const newState = e.target.value
+    setFormData(p => ({ ...p, state: newState, city: '' }))
+  }
+
+  const handleCityChange = (city) => {
+    setFormData(p => ({ ...p, city }))
+  }
 
   const handleRemoveExisting = (idx) => {
     setExistingUrls(p => p.filter((_, i) => i !== idx))
@@ -236,7 +332,7 @@ export default function UpdateListing() {
     }
   }
 
-  // ── Floor plan handlers (new) ──────────────────────────────────────────────
+  // ── Floor plan handlers ────────────────────────────────────────────────────
   const handleFloorPlanChange = (e) => {
     setFloorPlanMsg({ type: '', text: '' })
     const file = e.target.files[0]
@@ -249,7 +345,6 @@ export default function UpdateListing() {
       return setFloorPlanMsg({ type: 'error', text: 'Floor plan must be under 10 MB.' })
     setFloorPlanFile(file)
     setFloorPlanPreview(isImage ? URL.createObjectURL(file) : '')
-    // Clear the saved URL so user knows they need to re-upload
     setFormData(p => ({ ...p, floorPlan: '' }))
   }
 
@@ -285,6 +380,10 @@ export default function UpdateListing() {
     setSubmitError('')
     if (!formData.type)
       return setSubmitError('Please select whether the property is For Sale or For Rent.')
+    if (!formData.state)
+      return setSubmitError('Please select a state.')
+    if (!formData.city)
+      return setSubmitError('Please select a city from the list.')
     if (mergedUrls.length === 0)
       return setSubmitError('Please keep or upload at least one image.')
     if (newImages.length > 0 && !allNewUploaded)
@@ -340,7 +439,7 @@ export default function UpdateListing() {
     { value: 'bachelor', Icon: FaUser,        label: 'Bachelor' },
   ]
 
-  // ── Loading / error screen ─────────────────────────────────────────────────
+  // ── Loading screen ─────────────────────────────────────────────────────────
   if (fetchLoading) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -352,13 +451,25 @@ export default function UpdateListing() {
     )
   }
 
-  if (fetchError) {
+  // ── Error / unauthorized screen ─────────────────────────────────────────────
+  // Covers both "listing not found" and "you don't own this listing" —
+  // same UI either way so we don't leak which case it was.
+  if (fetchError || !authorized) {
+    const isPermissionIssue = !authorized && !fetchError.includes('not found')
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 max-w-md w-full text-center">
-          <FaExclamationCircle className="text-red-400 text-4xl mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-slate-800 mb-2">Couldn't load listing</h2>
-          <p className="text-slate-500 text-sm mb-5">{fetchError}</p>
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            {isPermissionIssue
+              ? <FaLock className="text-red-400 text-2xl" />
+              : <FaExclamationCircle className="text-red-400 text-2xl" />}
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-2">
+            {isPermissionIssue ? "You can't edit this listing" : "Couldn't load listing"}
+          </h2>
+          <p className="text-slate-500 text-sm mb-5">
+            {fetchError || 'You do not have permission to edit this listing.'}
+          </p>
           <button onClick={() => navigate(-1)}
             className="bg-green-600 hover:bg-green-700 text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition">
             Go Back
@@ -408,9 +519,55 @@ export default function UpdateListing() {
               <div>
                 <label className={labelCls}><FaMapMarkerAlt className="mr-1.5 text-slate-400 inline" /> Address</label>
                 <input onChange={handleChange} value={formData.address} type="text" id="address" required
-                  placeholder="123 Main Street, City, State" className={inputCls} />
+                  placeholder="123 Main Street, Locality" className={inputCls} />
               </div>
             </div>
+          </section>
+
+          {/* ── Location ───────────────────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}><FaMapMarkerAlt className="text-green-400" /> Location</h2>
+            <p className="text-sm text-slate-400 mb-4">
+              Pick the state and city from the list — this keeps location names
+              consistent across the platform and powers search filters.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="state" className={labelCls}>State</label>
+                <div className="relative">
+                  <select
+                    id="state"
+                    value={formData.state}
+                    onChange={handleStateChange}
+                    required
+                    className={`${inputCls} appearance-none pr-10 cursor-pointer`}
+                  >
+                    <option value="" disabled>Select a state…</option>
+                    {INDIAN_STATES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="city" className={labelCls}>City</label>
+                <CityAutocomplete
+                  state={formData.state}
+                  value={formData.city}
+                  onChange={handleCityChange}
+                  disabled={!formData.state}
+                />
+              </div>
+            </div>
+
+            {formData.state && formData.city && (
+              <div className="mt-4 flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-2.5 text-sm text-green-700 font-medium">
+                <FaCheckCircle className="text-green-500" />
+                Listing will show as located in {formData.city}, {formData.state}
+              </div>
+            )}
           </section>
 
           {/* Listing Options */}
@@ -549,7 +706,7 @@ export default function UpdateListing() {
             )}
           </section>
 
-          {/* ── Contact Details (new) ──────────────────────────────────────── */}
+          {/* ── Contact Details ───────────────────────────────────────────── */}
           <section className={sectionCls}>
             <h2 className={h2Cls}>
               <FaUserTie className="text-green-400" /> Contact Details
@@ -750,7 +907,7 @@ export default function UpdateListing() {
             )}
           </section>
 
-          {/* ── Floor Plan (new) ──────────────────────────────────────────── */}
+          {/* ── Floor Plan ─────────────────────────────────────────────────── */}
           <section className={sectionCls}>
             <h2 className={h2Cls}>
               <FaFileAlt className="text-green-400" /> Floor Plan
@@ -758,7 +915,6 @@ export default function UpdateListing() {
             </h2>
             <p className="text-sm text-slate-400 mb-4">Upload an image or PDF of the floor plan. Max 10 MB.</p>
 
-            {/* Currently saved floor plan (from DB, no new file chosen) */}
             {formData.floorPlan && !floorPlanFile && (
               <div className="mb-3">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Current Floor Plan</p>
@@ -783,7 +939,6 @@ export default function UpdateListing() {
               </div>
             )}
 
-            {/* File picker — shown when no saved plan and no new file chosen */}
             {!formData.floorPlan && !floorPlanFile && (
               <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition hover:border-green-400 hover:bg-green-50 border-slate-200">
                 <input type="file" accept="image/*,application/pdf" onChange={handleFloorPlanChange} className="hidden" />
@@ -795,7 +950,6 @@ export default function UpdateListing() {
               </label>
             )}
 
-            {/* Replace picker — shown when there IS a saved plan but user wants to swap */}
             {formData.floorPlan && !floorPlanFile && (
               <label className="flex items-center justify-center gap-2 border border-slate-200 hover:border-green-400 hover:bg-green-50 text-slate-600 hover:text-green-700 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition mt-2">
                 <input type="file" accept="image/*,application/pdf" onChange={handleFloorPlanChange} className="hidden" />
@@ -803,14 +957,12 @@ export default function UpdateListing() {
               </label>
             )}
 
-            {/* Preview — image */}
             {floorPlanFile && floorPlanIsImage && floorPlanPreview && !floorPlanUploaded && (
               <div className="rounded-xl overflow-hidden border border-slate-200 mb-3">
                 <img src={floorPlanPreview} alt="Floor plan preview" className="w-full max-h-48 object-contain bg-slate-50" />
               </div>
             )}
 
-            {/* Preview — PDF */}
             {floorPlanFile && floorPlanIsPDF && !floorPlanUploaded && (
               <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 mb-3 bg-slate-50">
                 <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
@@ -823,7 +975,6 @@ export default function UpdateListing() {
               </div>
             )}
 
-            {/* Upload / Remove buttons for new file */}
             {floorPlanFile && !floorPlanUploaded && (
               <div className="flex gap-2">
                 <button type="button" onClick={handleFloorPlanUpload} disabled={floorPlanUploading}

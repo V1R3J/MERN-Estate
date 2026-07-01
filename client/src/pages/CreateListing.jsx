@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -10,9 +10,11 @@ import {
   FaDoorOpen, FaSwimmingPool, FaChild, FaUserFriends, FaUser,
   FaTree, FaDumbbell, FaShieldAlt, FaWifi, FaBolt,
   FaUserTie, FaPhone, FaEnvelope, FaFileAlt, FaFilePdf, FaImage,
+  FaCity, FaChevronDown, FaSearch,
 } from 'react-icons/fa'
 import { storage } from '../appwrite'
 import { ID } from 'appwrite'
+import { INDIAN_STATES, getCitiesForState } from '../data/indianLocations'
 
 const MAX_IMAGES  = 6
 const MAX_SIZE_MB = 4
@@ -51,6 +53,91 @@ const PriceDisplay = ({ value, color = 'text-green-600' }) => {
   )
 }
 
+// ── City autocomplete — searchable, but only lets you pick from the list ──────
+// This is what guarantees a "correctly named" city: the user can type to filter,
+// but the final value MUST be one of the cities belonging to the selected state.
+function CityAutocomplete({ state, value, onChange, disabled }) {
+  const [query, setQuery]   = useState(value || '')
+  const [open, setOpen]     = useState(false)
+  const [highlight, setHighlight] = useState(0)
+  const wrapRef = useRef(null)
+
+  const cities = state ? getCitiesForState(state) : []
+  const filtered = query
+    ? cities.filter(c => c.toLowerCase().includes(query.toLowerCase()))
+    : cities
+
+  // keep local query in sync if parent value changes externally (e.g. reset)
+  useEffect(() => { setQuery(value || '') }, [value])
+
+  // close dropdown on outside click
+  useEffect(() => {
+    const onClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const selectCity = (city) => {
+    onChange(city)
+    setQuery(city)
+    setOpen(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!open) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtered.length - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
+    if (e.key === 'Enter')     { e.preventDefault(); if (filtered[highlight]) selectCity(filtered[highlight]) }
+    if (e.key === 'Escape')    setOpen(false)
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+        <input
+          type="text"
+          disabled={disabled}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(0); if (e.target.value === '') onChange('') }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={disabled ? 'Select a state first' : 'Type to search city…'}
+          className="w-full border border-slate-200 bg-slate-50 disabled:bg-slate-100 disabled:cursor-not-allowed rounded-xl py-3 pl-11 pr-4 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition"
+        />
+        {value && (
+          <FaCheckCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
+        )}
+      </div>
+
+      {open && !disabled && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1.5 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg py-1.5">
+          {filtered.map((city, i) => (
+            <li
+              key={city}
+              onMouseDown={() => selectCity(city)}
+              onMouseEnter={() => setHighlight(i)}
+              className={`px-4 py-2.5 text-sm cursor-pointer flex items-center gap-2.5
+                ${i === highlight ? 'bg-green-50 text-green-700' : 'text-slate-700 hover:bg-slate-50'}`}
+            >
+              <FaCity className={i === highlight ? 'text-green-500' : 'text-slate-300'} />
+              {city}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {open && !disabled && filtered.length === 0 && (
+        <div className="absolute z-20 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-3 px-4 text-sm text-slate-400">
+          No matching city in this state. Pick from the list to keep names consistent.
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CreateListing() {
   const navigate = useNavigate()
   const { currentUser } = useSelector(state => state.user)
@@ -72,6 +159,8 @@ export default function CreateListing() {
 
   const [formData, setFormData] = useState({
     name: '', description: '', address: '',
+    // location (new)
+    state: '', city: '',
     type: '', parking: false, furnished: false, offer: false,
     bedrooms: 1, bathrooms: 1, regularPrice: 0, discountPrice: 0, imageUrls: [],
     // space details
@@ -80,9 +169,9 @@ export default function CreateListing() {
     swimmingPool: false, playArea: false, gym: false,
     garden: false, security: false, wifi: false, powerBackup: false,
     suitableFor: '',
-    // contact details (new)
+    // contact details
     contactName: '', contactEmail: '', contactPhone: '',
-    // floor plan (new) — stored as URL after upload
+    // floor plan — stored as URL after upload
     floorPlan: '',
   })
 
@@ -106,6 +195,17 @@ export default function CreateListing() {
   }
 
   const setType = (type) => setFormData(p => ({ ...p, type }))
+
+  // ── Location handlers ──────────────────────────────────────────────────────
+  const handleStateChange = (e) => {
+    const newState = e.target.value
+    // changing the state clears the city, since the old city may not belong to it
+    setFormData(p => ({ ...p, state: newState, city: '' }))
+  }
+
+  const handleCityChange = (city) => {
+    setFormData(p => ({ ...p, city }))
+  }
 
   // ── Dropzone (listing images) ─────────────────────────────────────────────
   const onDrop = useCallback((accepted) => {
@@ -204,6 +304,8 @@ export default function CreateListing() {
     e.preventDefault()
     setSubmitError('')
     if (!formData.type)             return setSubmitError('Please select whether the property is For Sale or For Rent.')
+    if (!formData.state)            return setSubmitError('Please select a state.')
+    if (!formData.city)             return setSubmitError('Please select a city from the list.')
     if (!formData.imageUrls.length) return setSubmitError('Please upload at least one image before submitting.')
     if (hasOffer && Number(formData.discountPrice) >= Number(formData.regularPrice))
       return setSubmitError('Discounted price must be lower than the regular price.')
@@ -299,9 +401,58 @@ export default function CreateListing() {
               <div>
                 <label className={labelCls}><FaMapMarkerAlt className="mr-1.5 text-slate-400 inline" /> Address</label>
                 <input onChange={handleChange} value={formData.address} type="text" id="address" required
-                  placeholder="123 Main Street, City, State" className={inputCls} />
+                  placeholder="123 Main Street, Locality" className={inputCls} />
               </div>
             </div>
+          </section>
+
+          {/* ── Location (NEW) ────────────────────────────────────────────── */}
+          <section className={sectionCls}>
+            <h2 className={h2Cls}><FaMapMarkerAlt className="text-green-400" /> Location</h2>
+            <p className="text-sm text-slate-400 mb-4">
+              Pick the state and city from the list — this keeps location names
+              consistent across the platform and powers search filters.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              {/* State dropdown */}
+              <div>
+                <label htmlFor="state" className={labelCls}>State</label>
+                <div className="relative">
+                  <select
+                    id="state"
+                    value={formData.state}
+                    onChange={handleStateChange}
+                    required
+                    className={`${inputCls} appearance-none pr-10 cursor-pointer`}
+                  >
+                    <option value="" disabled>Select a state…</option>
+                    {INDIAN_STATES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
+                </div>
+              </div>
+
+              {/* City autocomplete — only enabled once a state is picked */}
+              <div>
+                <label htmlFor="city" className={labelCls}>City</label>
+                <CityAutocomplete
+                  state={formData.state}
+                  value={formData.city}
+                  onChange={handleCityChange}
+                  disabled={!formData.state}
+                />
+              </div>
+            </div>
+
+            {formData.state && formData.city && (
+              <div className="mt-4 flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-2.5 text-sm text-green-700 font-medium">
+                <FaCheckCircle className="text-green-500" />
+                Listing will show as located in {formData.city}, {formData.state}
+              </div>
+            )}
           </section>
 
           {/* Property Type */}
@@ -440,7 +591,7 @@ export default function CreateListing() {
             )}
           </section>
 
-          {/* ── Contact Details (NEW) ─────────────────────────────────────── */}
+          {/* ── Contact Details ───────────────────────────────────────────── */}
           <section className={sectionCls}>
             <h2 className={h2Cls}><FaUserTie className="text-green-400" /> Contact Details
               <span className="ml-auto text-xs font-normal text-slate-400 normal-case tracking-normal">Optional</span>
@@ -589,7 +740,7 @@ export default function CreateListing() {
             )}
           </section>
 
-          {/* ── Floor Plan (NEW) ─────────────────────────────────────────── */}
+          {/* ── Floor Plan ─────────────────────────────────────────────────── */}
           <section className={sectionCls}>
             <h2 className={h2Cls}>
               <FaFileAlt className="text-green-400" /> Floor Plan

@@ -13,6 +13,12 @@ const listingSchema = new mongoose.Schema(
         imageUrls:    { type: [String], required: true },
         userRef:      { type: String,   required: true },
 
+        // ── Location (new) ────────────────────────────────────────────────────
+        // Picked from a fixed state→city dataset on the frontend, so values
+        // are always consistent — no free-text spelling variants.
+        state: { type: String, required: true },
+        city:  { type: String, required: true },
+
         // ── Pricing ───────────────────────────────────────────────────────────
         offer:         { type: Boolean, default: false },
         discountPrice: { type: Number,  default: 0     },
@@ -43,10 +49,18 @@ const listingSchema = new mongoose.Schema(
         contactPhone: { type: String, default: '' },
 
         //-Floor Plan (optional) - can be a URL to an image or PDF
-        floorPlan: { type: String, default: '' }
+        floorPlan: { type: String, default: '' },
+        
+        //Contact Clicks counter
+        contactClicks: { type: Number, default: 0 },
+
     },
     { timestamps: true }
 )
+
+// Indexes to speed up location-based search/filtering
+listingSchema.index({ city: 1 });
+listingSchema.index({ state: 1 });
 
 const Listing = mongoose.model('Listing', listingSchema);
 
