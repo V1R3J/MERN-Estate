@@ -27,7 +27,11 @@ const extractFileId = (url) => {
 
 export const createListing = async (req, res, next) => {
   try {
-    const listing = await Listing.create(req.body);
+    // Every new listing starts as 'pending' regardless of what the client
+    // sends — status is a moderation flag, not something the frontend
+    // should ever be able to set directly (prevents someone from POSTing
+    // { status: 'approved' } themselves).
+    const listing = await Listing.create({ ...req.body, status: 'pending' });
     return res.status(201).json(listing);
   } catch (error) {
     next(error);
@@ -77,9 +81,15 @@ export const updateListing = async (req, res, next) => {
   }
 
   try {
+    // Strip status from the body — an owner editing their listing shouldn't
+    // be able to re-approve it themselves. Editing an approved listing
+    // could reasonably kick it back to 'pending' for re-review, but that's
+    // a product decision — left as-is for now, just guarded from tampering.
+    const { status, ...safeUpdates } = req.body;
+
     const updatedListing = await Listing.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      safeUpdates,
       { new: true }
     );
     res.status(200).json(updatedListing);
@@ -190,6 +200,22 @@ export const getListings = async (req, res, next) => {
     if (req.query.state) locationFilter.state = req.query.state;
     if (req.query.city)  locationFilter.city  = req.query.city;
 
+    // ── owner filter (new) ───────────────────────────────────────────────────
+    // When a userRef is passed, this is someone viewing their OWN listings
+    // (e.g. MyListings.jsx) — they should see pending/rejected ones too,
+    // so we skip the public status filter in that case.
+    let userRefFilter = {};
+    if (req.query.userRef) userRefFilter.userRef = req.query.userRef;
+
+    // ── moderation status filter (new) ───────────────────────────────────────
+    // Public search (Search.jsx, Home.jsx featured section) must never show
+    // unapproved listings. This is hardcoded, not read from req.query, so a
+    // client can't request ?status=pending to see everyone's pending listings.
+    let statusFilter = {};
+    if (!req.query.userRef) {
+      statusFilter = { status: 'approved' };
+    }
+
     const searchTerm = req.query.searchTerm || '';
     const sort = req.query.sort || 'createdAt';
     const order = req.query.order || 'desc';
@@ -211,6 +237,8 @@ export const getListings = async (req, res, next) => {
       ...priceFilter,
       ...bedroomsFilter,
       ...locationFilter,
+      ...userRefFilter,
+      ...statusFilter,
     })
       .sort({ [sort]: order })
       .limit(limit)

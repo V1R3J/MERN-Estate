@@ -134,10 +134,22 @@ function ListingCard({ listing }) {
         <h3 className="font-bold text-slate-900 text-lg leading-snug mb-1.5 truncate group-hover:text-green-800 transition-colors">
           {listing.name}
         </h3>
-        <p className="flex items-center gap-1.5 text-slate-500 text-sm mb-3.5 truncate">
+        <p className="flex items-center gap-1.5 text-slate-500 text-sm mb-3 truncate">
           <i className="fa-solid fa-location-dot text-green-600 shrink-0" />
           {listing.address}
         </p>
+
+        {/* City / State pills — same treatment as AdminListingCard */}
+        <div className="flex items-center gap-2 mb-3.5">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-50 text-green-700 border border-green-100 px-2.5 py-1 rounded-full">
+            <i className="fa-solid fa-city text-[11px]" />
+            {listing.city || "No city"}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+            <i className="fa-solid fa-flag text-[11px]" />
+            {listing.state || "No state"}
+          </span>
+        </div>
 
         <div className="flex items-center gap-4 text-base text-slate-700 mb-3.5">
           <span className="flex items-center gap-1.5">

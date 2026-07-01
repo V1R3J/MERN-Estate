@@ -30,6 +30,8 @@ export default function Profile() {
   const [updating, setUpdating] = useState(false)
   const [deleteSuccess, setDeleteSuccess] = useState(false)
 
+  const isAdmin = !!currentUser?.isAdmin
+
   useEffect(() => {
     if (file) {
       handleFileUpload(file)
@@ -172,6 +174,11 @@ export default function Profile() {
         {/* Welcome message */}
         <h2 className='text-xl font-semibold text-green-700'>
           Welcome, <span className='capitalize'>{currentUser?.username?.slice(0,-4)}</span>!
+          {isAdmin && (
+            <span className='ml-2 items-center text-xs font-bold uppercase tracking-wider bg-green-600 text-white px-2 py-0.5 rounded-full'>
+              Admin
+            </span>
+          )}
         </h2>
 
         {/* Username */}
@@ -225,8 +232,8 @@ export default function Profile() {
 
         {/* Update success message */}
         {updateSuccess && (
-          <p className='text-green-600 font-medium mt-1'>
-            ✅ Profile updated successfully!
+          <p className='text-green-600 font-medium mt-1 font-uppercase'>
+            Profile updated successfully!
           </p>
         )}
 
@@ -249,9 +256,21 @@ export default function Profile() {
             <FaUpload />
             {updating ? 'Updating...' : 'Update Profile'}
           </button>
-          <Link to={'/create-listing'} className='bg-blue-700 self-start text-center hover:opacity-75 flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-blue-700 transition'>
-            <FaPlus /> Create Listing
-          </Link>
+
+          {/* Create Listing, My Listings, and Delete Account only make sense
+              for regular users — an admin manages everything from
+              /admin, not by owning listings themselves. */}
+          {!isAdmin && (
+            <>
+              <Link to={'/create-listing'} className='bg-blue-700 self-start text-center hover:opacity-75 flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-blue-700 transition'>
+                <FaPlus /> Create Listing
+              </Link>
+              <Link to={'/my-listings'} className='bg-green-700 w-xl self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-gray-800 transition'>
+                <FaList /> Show My Listings
+              </Link>
+            </>
+          )}
+
           <button
             onClick={handleSignOut}
             type='button'
@@ -259,16 +278,16 @@ export default function Profile() {
           >
             <FaSignOutAlt /> Sign Out
           </button>
-          <button
-            onClick={handleDeleteUser}
-            type='button'
-            className='bg-red-600 self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-red-700 transition'
-          >
-            <FaTrash /> Delete Account
-          </button>
-          <Link to={'/my-listings'} className='bg-green-700 w-xl self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-gray-800 transition'>
-            <FaList /> Show My Listings
-          </Link>
+
+          {!isAdmin && (
+            <button
+              onClick={handleDeleteUser}
+              type='button'
+              className='bg-red-600 self-start flex gap-2 items-center text-white p-3 rounded-lg mt-5 hover:bg-red-700 transition'
+            >
+              <FaTrash /> Delete Account
+            </button>
+          )}
         </span>
       </form>
     </div>

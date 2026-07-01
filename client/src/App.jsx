@@ -6,12 +6,14 @@ import About from './pages/About';
 import Profile from './pages/Profile';
 import Header from './components/Header';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 import CreateListing from './pages/CreateListing';
 import MyListings from './pages/MyListings';
 import UpdateListings from './pages/UpdateListings';
 import Listing from './pages/Listing';
 import Search from './pages/Search';
 import Footer from './components/Footer';
+import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
   return (
@@ -34,6 +36,11 @@ export default function App() {
               <Route path="/my-listings" element={<MyListings />} />
               <Route path="/create-listing" element={<CreateListing />} />
               <Route path="/update-listing/:listingId" element={<UpdateListings />} />
+            </Route>
+
+            {/* Admin-only routes */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />} />
             </Route>
           </Routes>
         </main>

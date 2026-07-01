@@ -54,6 +54,9 @@ const listingSchema = new mongoose.Schema(
         //Contact Clicks counter
         contactClicks: { type: Number, default: 0 },
 
+        //Listing approval status
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+
     },
     { timestamps: true }
 )
