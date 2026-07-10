@@ -62,20 +62,24 @@ export default function SignIn() {
   const canSubmit = formData.email && formData.password && !loading
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <main className="min-h-screen relative flex items-center justify-center px-4 py-12 bg-green-900 bg-[url('/images/bg1.jpg')] bg-cover bg-center bg-fixed">
+
+      {/* Dark overlay so the card and text stay readable over the photo */}
+      <div className="absolute inset-0 bg-green-950/55" />
+
+      <div className="relative z-10 w-full max-w-md">
 
         {/* Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-green-600 text-white w-12 h-12 rounded-xl flex items-center justify-center shadow-md mb-3">
+          <div className="bg-green-600 text-white w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-3">
             <FaHome className="text-xl" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Welcome back</h1>
-          <p className="text-slate-500 mt-1 text-base">Sign in to continue to Nestora</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-sm">Welcome back</h1>
+          <p className="text-green-100 mt-1 text-base">Sign in to continue to Nestora</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
             {/* Email */}
@@ -162,8 +166,8 @@ export default function SignIn() {
 
         {/* Footer link */}
         <div className="flex justify-center gap-2 mt-6 text-base">
-          <p className="text-slate-500">Don't have an account?</p>
-          <Link to="/sign-up" className="text-green-600 font-semibold hover:text-green-700 transition">
+          <p className="text-green-100">Don't have an account?</p>
+          <Link to="/sign-up" className="text-white font-semibold hover:text-green-200 transition underline underline-offset-2">
             Sign Up
           </Link>
         </div>

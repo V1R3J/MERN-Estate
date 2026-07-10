@@ -10,5 +10,48 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- ─── Quirky tab title on blur ──────────────────────────────────────── -->
+    <script>
+      (function () {
+        const DEFAULT_TITLE = "Nestora";
+
+        const AWAY_TITLES = [
+          "Come back? 🥺",
+          "Your dream home is waiting...",
+          "Don't leave, we just met!",
+          "Still here, still verified 🏡",
+          "Miss us already?",
+          "Psst... your next home awaits",
+          "We saved your spot 💚",
+          "Loading your absence...",
+          "Home is where the tab is",
+          "One click back to Nestora",
+        ];
+
+        let titleInterval = null;
+
+        function pickRandom(arr) {
+          return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function handleVisibilityChange() {
+          if (document.hidden) {
+            document.title = pickRandom(AWAY_TITLES);
+
+            // Optional: cycle through a couple more quirky lines the longer they're away
+            clearInterval(titleInterval);
+            titleInterval = setInterval(() => {
+              document.title = pickRandom(AWAY_TITLES);
+            }, 4000);
+          } else {
+            clearInterval(titleInterval);
+            document.title = DEFAULT_TITLE;
+          }
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+      })();
+    </script>
   </body>
 </html>

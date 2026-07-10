@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import Lottie from "lottie-react";
+import verified from "/public/animations/verified.json";
 
-// Font Awesome — add this to your index.html <head> if not already there:
-// <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
 // ─── Scroll-reveal hook ───────────────────────────────────────────────────────
 function useScrollReveal() {
@@ -38,7 +38,7 @@ function FadeUp({ children, delay = 0 }) {
   );
 }
 
-// ─── Rupee formatter ──────────────────────────────────────────────────────────
+// ─── Rupee formatter
 const toShortINR = (n) => {
   if (!n) return "—";
   if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(1)}Cr`;
@@ -47,20 +47,46 @@ const toShortINR = (n) => {
   return `₹${n}`;
 };
 
-// ─── Eyebrow label (reused across sections) ───────────────────────────────────
-function Eyebrow({ children }) {
+// ─── Eyebrow label
+function Eyebrow({ children, dark }) {
   return (
-    <div className="inline-flex items-center gap-2 text-green-800 text-sm font-bold uppercase tracking-widest mb-3">
-      <span className="w-4 h-0.5 bg-green-700 rounded inline-block" />
+    <div className={`inline-flex items-center gap-2 text-sm md:text-base font-bold uppercase tracking-widest mb-3 ${dark ? "text-green-200" : "text-green-800"}`}>
+      <span className={`w-4 h-0.5 rounded inline-block ${dark ? "bg-green-300" : "bg-green-700"}`} />
       {children}
     </div>
+  );
+}
+
+// ─── Shared section heading 
+function SectionHeading({ eyebrow, title, subtitle, dark, wide, className = "" }) {
+  return (
+    <div className={`text-center ${wide ? "max-w-2xl" : "max-w-xl"} mx-auto mb-14 ${className}`}>
+      <Eyebrow dark={dark}>{eyebrow}</Eyebrow>
+      <h2 className={`text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-5 leading-[1.1] ${dark ? "text-white" : "text-slate-900"}`}>
+        {title}
+      </h2>
+      {subtitle && (
+        <p className={`text-lg md:text-xl leading-relaxed ${dark ? "text-green-100" : "text-slate-600"}`}>{subtitle}</p>
+      )}
+    </div>
+  );
+}
+
+function GeoShapes({ variant = "light" }) {
+  const ring = variant === "dark" ? "border-white/20" : "border-green-300/40";
+  return (
+    <>
+      <div className={`absolute -top-32 -right-32 w-[420px] h-[420px] md:w-[480px] md:h-[480px] rounded-full border-[3px] ${ring} pointer-events-none`} />
+      <div className={`absolute -bottom-24 -left-20 w-[280px] h-[280px] md:w-[360px] md:h-[360px] rounded-full border-[3px] ${ring} pointer-events-none`} />
+      <div className={`absolute top-1/3 left-[8%] w-16 h-16 rotate-45 border-2 ${ring} pointer-events-none hidden md:block`} />
+    </>
   );
 }
 
 // ─── Star rating display (read-only) ─────────────────────────────────────────
 function StarRow({ rating }) {
   return (
-    <div className="flex gap-1 text-amber-400 text-sm mb-5">
+    <div className="flex gap-1 text-amber-400 text-base mb-5">
       {[...Array(5)].map((_, i) => (
         <i key={i} className={`fa-solid fa-star ${i < rating ? "" : "text-slate-200"}`} />
       ))}
@@ -79,7 +105,7 @@ function ListingCard({ listing }) {
       to={`/listing/${listing._id}`}
       className="group block bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-green-400 transition-all duration-200 overflow-hidden"
     >
-      <div className="relative h-52 overflow-hidden bg-slate-100">
+      <div className="relative h-52 sm:h-56 overflow-hidden bg-slate-100">
         {images.length > 0 ? (
           <img
             src={images[imgIdx]}
@@ -131,16 +157,15 @@ function ListingCard({ listing }) {
       </div>
 
       <div className="p-5">
-        <h3 className="font-bold text-slate-900 text-lg leading-snug mb-1.5 truncate group-hover:text-green-800 transition-colors">
+        <h3 className="font-bold text-slate-900 text-xl leading-snug mb-1.5 truncate group-hover:text-green-800 transition-colors">
           {listing.name}
         </h3>
-        <p className="flex items-center gap-1.5 text-slate-500 text-sm mb-3 truncate">
+        <p className="flex items-center gap-1.5 text-slate-500 text-base mb-3 truncate">
           <i className="fa-solid fa-location-dot text-green-600 shrink-0" />
           {listing.address}
         </p>
 
-        {/* City / State pills — same treatment as AdminListingCard */}
-        <div className="flex items-center gap-2 mb-3.5">
+        <div className="flex items-center gap-2 mb-3.5 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-50 text-green-700 border border-green-100 px-2.5 py-1 rounded-full">
             <i className="fa-solid fa-city text-[11px]" />
             {listing.city || "No city"}
@@ -151,7 +176,7 @@ function ListingCard({ listing }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-base text-slate-700 mb-3.5">
+        <div className="flex items-center gap-4 text-base text-slate-700 mb-3.5 flex-wrap">
           <span className="flex items-center gap-1.5">
             <i className="fa-solid fa-bed text-green-600" />
             {listing.bedrooms} {listing.bedrooms === 1 ? "Bed" : "Beds"}
@@ -173,19 +198,19 @@ function ListingCard({ listing }) {
             {listing.offer && listing.discountPrice ? (
               <>
                 <p className="text-sm text-slate-400 line-through">{toShortINR(listing.regularPrice)}</p>
-                <p className="text-xl font-bold text-green-700">
+                <p className="text-2xl font-bold text-green-700">
                   {toShortINR(listing.discountPrice)}
                   <span className="text-sm font-normal text-slate-500 ml-1">{isRent ? "/mo" : ""}</span>
                 </p>
               </>
             ) : (
-              <p className="text-xl font-bold text-green-700">
+              <p className="text-2xl font-bold text-green-700">
                 {toShortINR(listing.regularPrice)}
                 <span className="text-sm font-normal text-slate-500 ml-1">{isRent ? "/mo" : ""}</span>
               </p>
             )}
           </div>
-          <span className="text-sm text-green-700 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+          <span className="text-base text-green-700 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
             View <i className="fa-solid fa-arrow-right text-xs" />
           </span>
         </div>
@@ -198,7 +223,7 @@ function ListingCard({ listing }) {
 function CardSkeleton() {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden animate-pulse">
-      <div className="h-52 bg-slate-100" />
+      <div className="h-52 sm:h-56 bg-slate-100" />
       <div className="p-5 flex flex-col gap-3">
         <div className="h-5 bg-slate-100 rounded w-3/4" />
         <div className="h-4 bg-slate-100 rounded w-1/2" />
@@ -236,26 +261,37 @@ function StarRatingInput({ value, onChange }) {
   );
 }
 
+// ─── Role options for the review dialog dropdown ─────────────────────────────
+const REVIEWER_ROLES = [
+  { value: "",           label: "Select your role…" },
+  { value: "homebuyer",  label: "Homebuyer" },
+  { value: "tenant",     label: "Tenant" },
+  { value: "seller",     label: "Seller / Lister" },
+  { value: "landlord",   label: "Landlord / Owner" },
+  { value: "agent",      label: "Real Estate Agent" },
+  { value: "other",      label: "Other" },
+];
+
 // ─── Review dialog — tied to the logged-in account, opens in place ──────────
 function ReviewDialog({ onClose, onSubmitted }) {
   const { currentUser } = useSelector(state => state.user);
   const navigate = useNavigate();
 
   const [role, setRole]             = useState("");
+  const [city, setCity]             = useState("");
   const [rating, setRating]         = useState(0);
   const [quote, setQuote]           = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
-  // Not logged in — redirect to sign-in instead of showing the form.
   if (!currentUser) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4" onClick={onClose}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center" onClick={e => e.stopPropagation()}>
           <i className="fa-solid fa-lock text-3xl text-green-600 mb-4" />
-          <h3 className="font-bold text-slate-900 text-xl mb-2">Sign in to leave a review</h3>
-          <p className="text-slate-500 text-sm mb-6">You need an account to share your experience.</p>
+          <h3 className="font-bold text-slate-900 text-2xl mb-2">Sign in to leave a review</h3>
+          <p className="text-slate-500 text-base mb-6">You need an account to share your experience.</p>
           <button
             onClick={() => { onClose(); navigate("/sign-in"); }}
             className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition"
@@ -270,7 +306,6 @@ function ReviewDialog({ onClose, onSubmitted }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     if (!quote.trim()) return setError("Please write a short review.");
     if (rating === 0)  return setError("Please choose a star rating.");
 
@@ -280,7 +315,13 @@ function ReviewDialog({ onClose, onSubmitted }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ rating, quote: quote.trim(), role: role.trim(), isAnonymous }),
+        body: JSON.stringify({
+          rating,
+          quote: quote.trim(),
+          role,
+          city: city.trim(),
+          isAnonymous,
+        }),
       });
       if (!res.ok) throw new Error("Review submission failed");
       onSubmitted?.();
@@ -302,7 +343,6 @@ function ReviewDialog({ onClose, onSubmitted }) {
         <h3 className="font-bold text-slate-900 text-2xl mb-1.5">Share your experience</h3>
         <p className="text-slate-500 text-base mb-6">Tell other buyers, sellers, and tenants how Nestora worked for you.</p>
 
-        {/* Reviewer identity preview */}
         <div className="flex items-center gap-3 mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
           <img
             src={isAnonymous ? "https://i.pinimg.com/originals/83/bc/8b/83bc8b88cf6bc4b4e04d153a418cde62.jpg?nii=t" : currentUser.avatar}
@@ -316,16 +356,39 @@ function ReviewDialog({ onClose, onSubmitted }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Role &amp; city <span className="text-slate-400 font-normal">(optional)</span></label>
-            <input
-              type="text"
-              value={role}
-              onChange={e => setRole(e.target.value)}
-              placeholder="e.g. Homebuyer · Mumbai"
-              className="w-full h-12 px-4 border border-slate-200 rounded-xl text-base text-slate-800 bg-slate-50 placeholder-slate-400 outline-none focus:border-green-500 focus:bg-white transition"
-              maxLength={100}
-            />
+          {/* Role dropdown + city — separate fields for a cleaner layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Your role <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={role}
+                  onChange={e => setRole(e.target.value)}
+                  className="w-full h-12 px-4 pr-9 border border-slate-200 rounded-xl text-base text-slate-800 bg-slate-50 outline-none focus:border-green-500 focus:bg-white transition appearance-none cursor-pointer"
+                >
+                  {REVIEWER_ROLES.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+                <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Your city <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                placeholder="e.g. Mumbai"
+                className="w-full h-12 px-4 border border-slate-200 rounded-xl text-base text-slate-800 bg-slate-50 placeholder-slate-400 outline-none focus:border-green-500 focus:bg-white transition"
+                maxLength={50}
+              />
+            </div>
           </div>
 
           <div>
@@ -382,7 +445,52 @@ async function registerVisit() {
   return res.json();
 }
 
-// ─── Home page ────────────────────────────────────────────────────────────────
+// ─── Static content config —
+const SERVICES = [
+  { icon: "fa-house",             title: "Buy Property",  desc: "Browse verified homes, apartments, villas, and commercial spaces across India.", to: "/search?type=sale" },
+  { icon: "fa-key",               title: "Rent Property", desc: "Discover rental properties that match your lifestyle and budget.", to: "/search?type=rent" },
+  { icon: "fa-indian-rupee-sign", title: "Sell Property", desc: "Reach qualified buyers and maximise your property's market visibility.", to: "/create-listing" },
+  { icon: "fa-building",          title: "List For Rent", desc: "Connect with reliable tenants and manage enquiries effortlessly.", to: "/create-listing" },
+];
+
+const CATEGORIES_LEFT  = [
+  { label: "House",     icon: "fa-house",    to: "/search?type=sale" },
+  { label: "Apartment", icon: "fa-building", to: "/search?type=sale" },
+  { label: "Villa",     icon: "fa-tree",     to: "/search?type=sale" },
+];
+const CATEGORIES_RIGHT = [
+  { label: "Commercial",    icon: "fa-store",          to: "/search?type=sale" },
+  { label: "Land",          icon: "fa-map",            to: "/search?type=sale" },
+  { label: "Vacation Home", icon: "fa-umbrella-beach", to: "/search?type=rent" },
+];
+
+const WHY_US = [
+  { icon: "fa-shield-halved",             title: "Verified Listings",    desc: "Every property undergoes verification to improve trust and transparency." },
+  { icon: "fa-comments",                  title: "Direct Communication", desc: "Connect directly with property owners and interested buyers." },
+  { icon: "fa-magnifying-glass-location", title: "Smart Discovery",      desc: "Advanced filters help users find the right property quickly." },
+  { icon: "fa-lock",                      title: "Secure Experience",    desc: "Built with privacy and reliability at the core." },
+];
+
+const VERIFY_CHECKLIST = [
+  "Ownership documents checked before a listing goes live",
+  "Owner identity confirmed with government ID",
+  "Property details cross-verified against public records",
+  "Photos and pricing reviewed by our team, not just the owner",
+];
+
+const VERIFY_CARDS = [
+  { icon: "fa-house-circle-check", title: "Verified Properties", desc: "Every listing is inspected for accuracy before it's published on Nestora." },
+  { icon: "fa-user-shield",        title: "Verified Owners",     desc: "Every owner completes identity verification, so you know who you're dealing with." },
+];
+
+const PROCESS_STEPS = [
+  { icon: "fa-user-plus",    label: "Create Your Account",            num: "01" },
+  { icon: "fa-list-ul",      label: "Browse or List a Property",      num: "02" },
+  { icon: "fa-comment-dots", label: "Connect with Buyers or Tenants", num: "03" },
+  { icon: "fa-handshake",    label: "Close the Deal",                 num: "04" },
+];
+
+// ─── Home page 
 export default function Home() {
   const navigate = useNavigate();
 
@@ -398,13 +506,12 @@ export default function Home() {
     totalListings: 0, forSale: 0, forRent: 0, ownerContacts: 0, newThisWeek: 0,
   });
   const [insightsLoading, setInsightsLoading] = useState(true);
-
   const [visitorCount, setVisitorCount] = useState(null);
 
-  const [reviews,         setReviews]         = useState([]);
-  const [reviewsLoading,  setReviewsLoading]  = useState(true);
+  const [reviews,          setReviews]          = useState([]);
+  const [reviewsLoading,   setReviewsLoading]   = useState(true);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [justSubmitted,   setJustSubmitted]    = useState(false);
+  const [justSubmitted,    setJustSubmitted]    = useState(false);
 
   useEffect(() => {
     fetch("/api/listing/get?limit=3&sort=createdAt&order=desc")
@@ -453,170 +560,111 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
 
-      {/* ═══════════════════════════════════════════════════════════════
-          HERO SECTION
-          Decorative rings give the panel some depth instead of flat green.
-          Logo sits on a dark badge so the white mark stays visible.
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* HERO */}
       <section className="min-h-screen flex items-center bg-green-50 relative overflow-hidden">
-
-        {/* Decorative rings */}
-        <div className="absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full border-[3px] border-green-300/40 pointer-events-none" />
-        <div className="absolute -top-10 -right-10 w-[320px] h-[320px] rounded-full border-[3px] border-green-400/30 pointer-events-none" />
-        <div className="absolute -bottom-40 -left-24 w-[420px] h-[420px] rounded-full border-[3px] border-green-300/30 pointer-events-none" />
+        <img
+          src="/images/bg1.jpg"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none"
+          onError={e => { e.target.style.display = "none"; }}
+        />
+        <GeoShapes />
 
         <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-20">
-
-          {/* Brand row — dark badge behind the logo so a white mark stays visible */}
-          <div className="flex items-center gap-3 mb-14">
+          <div className="flex items-center gap-3 mb-12">
             <div className="w-11 h-11 rounded-xl bg-green-800 flex items-center justify-center shadow-md shadow-green-900/20">
-              <img
-                src="/images/logo.png"
-                alt=""
-                className="w-7 h-7 object-contain"
-                onError={e => { e.target.style.display = "none"; }}
-              />
+              <img src="/images/logo.png" alt="" className="w-7 h-7 object-contain" onError={e => { e.target.style.display = "none"; }} />
             </div>
-            <span className="text-2xl font-extrabold tracking-tight text-green-800">Nestora</span>
+            <span className="text-2xl md:text-3xl font-extrabold tracking-tight text-green-800">Nestora</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-
             <div>
-              <h1 className="text-5xl md:text-[64px] font-extrabold leading-[1.08] tracking-tight text-slate-900 mb-6">
+              <h1 className="text-5xl sm:text-6xl md:text-[68px] font-extrabold leading-[1.08] tracking-tight text-slate-900 mb-6">
                 Find Your Next<br />
                 <span className="text-green-700">Property</span> With<br />
                 Confidence
               </h1>
-
-              <p className="text-slate-600 text-xl leading-relaxed mb-10 max-w-lg">
+              <p className="text-slate-600 text-xl md:text-2xl leading-relaxed mb-10 max-w-lg">
                 Discover verified properties for sale and rent, or list your own
                 and connect directly with serious buyers and tenants.
               </p>
-
               <div className="flex flex-wrap gap-4">
-                <Link
-                  to="/search"
-                  className="inline-flex items-center gap-2 h-14 px-7 rounded-xl bg-green-600 hover:bg-green-700 text-white text-base font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200"
-                >
+                <Link to="/search" className="inline-flex items-center gap-2 h-14 px-7 rounded-xl bg-green-600 hover:bg-green-700 text-white text-lg font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200">
                   <i className="fa-solid fa-magnifying-glass" /> Explore Properties
                 </Link>
-                <Link
-                  to="/create-listing"
-                  className="inline-flex items-center gap-2 h-14 px-7 rounded-xl bg-white hover:bg-green-50 border-2 border-green-200 text-slate-800 text-base font-bold transition-all duration-200 hover:-translate-y-0.5"
-                >
+                <Link to="/create-listing" className="inline-flex items-center gap-2 h-14 px-7 rounded-xl bg-white hover:bg-green-50 border-2 border-green-200 text-slate-800 text-lg font-bold transition-all duration-200 hover:-translate-y-0.5">
                   <i className="fa-solid fa-plus text-green-700" /> List Your Property
                 </Link>
               </div>
             </div>
 
-            <div>
-              <form
-                onSubmit={handleHeroSearch}
-                className="bg-white rounded-2xl p-8 shadow-xl shadow-green-900/10 border border-green-100"
-              >
-                <p className="text-sm font-bold text-green-800 uppercase tracking-widest mb-6">
-                  Search Properties
-                </p>
+            <form onSubmit={handleHeroSearch} className="bg-white rounded-2xl p-6 sm:p-8 shadow-xl shadow-green-900/10 border border-green-100">
+              <p className="text-sm md:text-base font-bold text-green-800 uppercase tracking-widest mb-6">Search Properties</p>
 
-                <div className="relative mb-4">
-                  <i className="fa-solid fa-location-dot absolute left-4 top-1/2 -translate-y-1/2 text-green-600 text-base pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Enter city, area or locality…"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full h-14 pl-11 pr-4 border border-slate-200 rounded-xl text-base text-slate-800 bg-slate-50 placeholder-slate-400 outline-none focus:border-green-500 focus:bg-white transition"
-                  />
-                </div>
+              <div className="relative mb-4">
+                <i className="fa-solid fa-location-dot absolute left-4 top-1/2 -translate-y-1/2 text-green-600 text-base pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Enter city, area or locality…"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full h-14 pl-11 pr-4 border border-slate-200 rounded-xl text-base text-slate-800 bg-slate-50 placeholder-slate-400 outline-none focus:border-green-500 focus:bg-white transition"
+                />
+              </div>
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <select
-                    value={searchType}
-                    onChange={e => setSearchType(e.target.value)}
-                    className="h-14 px-3 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer"
-                  >
-                    <option value="all">Buy or Rent</option>
-                    <option value="sale">Buy</option>
-                    <option value="rent">Rent</option>
-                  </select>
-                  <select
-                    value={propType}
-                    onChange={e => setPropType(e.target.value)}
-                    className="h-14 px-3 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer"
-                  >
-                    <option value="">All Types</option>
-                    <option value="house">House</option>
-                    <option value="apartment">Apartment</option>
-                    <option value="villa">Villa</option>
-                    <option value="commercial">Commercial</option>
-                    <option value="land">Land</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <select value={searchType} onChange={e => setSearchType(e.target.value)} className="h-14 px-3 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer">
+                  <option value="all">Buy or Rent</option>
+                  <option value="sale">Buy</option>
+                  <option value="rent">Rent</option>
+                </select>
+                <select value={propType} onChange={e => setPropType(e.target.value)} className="h-14 px-3 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer">
+                  <option value="">All Types</option>
+                  <option value="house">House</option>
+                  <option value="apartment">Apartment</option>
+                  <option value="villa">Villa</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="land">Land</option>
+                </select>
+              </div>
 
-                <div className="mb-6">
-                  <select
-                    value={budget}
-                    onChange={e => setBudget(e.target.value)}
-                    className="w-full h-14 px-3 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer"
-                  >
-                    <option value="">Any Budget</option>
-                    <option value="5000000">Under ₹50 L</option>
-                    <option value="10000000">Under ₹1 Cr</option>
-                    <option value="30000000">Under ₹3 Cr</option>
-                    <option value="99999999">Above ₹3 Cr</option>
-                  </select>
-                </div>
+              <select value={budget} onChange={e => setBudget(e.target.value)} className="w-full h-14 px-3 mb-6 border border-slate-200 rounded-xl text-base text-slate-700 bg-slate-50 outline-none focus:border-green-500 cursor-pointer">
+                <option value="">Any Budget</option>
+                <option value="5000000">Under ₹50 L</option>
+                <option value="10000000">Under ₹1 Cr</option>
+                <option value="30000000">Under ₹3 Cr</option>
+                <option value="99999999">Above ₹3 Cr</option>
+              </select>
 
-                <button
-                  type="submit"
-                  className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold text-base rounded-xl transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200 flex items-center justify-center gap-2"
-                >
-                  <i className="fa-solid fa-magnifying-glass" /> Search Properties
-                </button>
-              </form>
-            </div>
-
+              <button type="submit" className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-xl transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200 flex items-center justify-center gap-2">
+                <i className="fa-solid fa-magnifying-glass" /> Search Properties
+              </button>
+            </form>
           </div>
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          SERVICES SECTION
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen flex items-center bg-slate-50">
-        <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-
+      {/* SERVICES */}
+      <section className="min-h-screen flex items-center bg-slate-50 relative overflow-hidden">
+        <img src="/images/bg2.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.10] pointer-events-none" onError={e => { e.target.style.display = "none"; }} />
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
           <FadeUp>
-            <div className="text-center max-w-xl mx-auto mb-14">
-              <Eyebrow>What Would You Like To Do?</Eyebrow>
-              <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
-                Everything Real Estate<br />In One Place
-              </h2>
-              <p className="text-slate-600 text-lg leading-relaxed">
-                Whether you're searching for your dream home, renting, or listing
-                a property — we've made it straightforward.
-              </p>
-            </div>
+            <SectionHeading
+              eyebrow="What Would You Like To Do?"
+              title={<>Everything Real Estate<br />In One Place</>}
+              subtitle="Whether you're searching for your dream home, renting, or listing a property — we've made it straightforward."
+            />
           </FadeUp>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: "fa-house",             title: "Buy Property",  desc: "Browse verified homes, apartments, villas, and commercial spaces across India.", to: "/search?type=sale" },
-              { icon: "fa-key",               title: "Rent Property", desc: "Discover rental properties that match your lifestyle and budget.", to: "/search?type=rent" },
-              { icon: "fa-indian-rupee-sign", title: "Sell Property", desc: "Reach qualified buyers and maximise your property's market visibility.", to: "/create-listing" },
-              { icon: "fa-building",          title: "List For Rent", desc: "Connect with reliable tenants and manage enquiries effortlessly.", to: "/create-listing" },
-            ].map((c, i) => (
+            {SERVICES.map((c, i) => (
               <FadeUp key={c.title} delay={i * 80}>
-                <Link
-                  to={c.to}
-                  className="group bg-white rounded-2xl p-8 text-center shadow-sm border border-slate-100 hover:shadow-md hover:border-green-300 hover:-translate-y-1.5 transition-all duration-200 block h-full"
-                >
+                <Link to={c.to} className="group bg-white rounded-2xl p-8 text-center shadow-sm border border-slate-100 hover:shadow-md hover:border-green-300 hover:-translate-y-1.5 transition-all duration-200 block h-full">
                   <div className="w-16 h-16 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-green-600 group-hover:text-white transition-all duration-200">
                     <i className={`fa-solid ${c.icon}`} />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2.5">{c.title}</h3>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">{c.title}</h3>
                   <p className="text-base text-slate-600 leading-relaxed">{c.desc}</p>
                 </Link>
               </FadeUp>
@@ -625,23 +673,11 @@ export default function Home() {
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          FEATURED LISTINGS SECTION
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* FEATURED LISTINGS */}
       <section className="min-h-screen flex items-center bg-white">
         <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-
           <FadeUp>
-            <div className="text-center max-w-lg mx-auto mb-14">
-              <Eyebrow>Trending Properties</Eyebrow>
-              <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
-                Handpicked Opportunities
-              </h2>
-              <p className="text-slate-600 text-lg leading-relaxed">
-                The most recently added listings across top cities.
-              </p>
-            </div>
+            <SectionHeading eyebrow="Trending Properties" title="Handpicked Opportunities" subtitle="The most recently added listings across top cities." />
           </FadeUp>
 
           {featuredLoading && (
@@ -653,9 +689,7 @@ export default function Home() {
           {!featuredLoading && featured.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {featured.map((listing, i) => (
-                <FadeUp key={listing._id} delay={i * 90}>
-                  <ListingCard listing={listing} />
-                </FadeUp>
+                <FadeUp key={listing._id} delay={i * 90}><ListingCard listing={listing} /></FadeUp>
               ))}
             </div>
           )}
@@ -663,16 +697,13 @@ export default function Home() {
           {!featuredLoading && featured.length === 0 && (
             <div className="text-center py-20 text-slate-400">
               <i className="fa-solid fa-house-circle-xmark text-5xl mb-4 block text-slate-200" />
-              <p className="text-base font-medium">No listings yet — be the first to post one.</p>
+              <p className="text-lg font-medium">No listings yet — be the first to post one.</p>
             </div>
           )}
 
           <FadeUp delay={240}>
             <div className="flex justify-center mt-12">
-              <Link
-                to="/search"
-                className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-green-600 hover:bg-green-700 text-white text-base font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200"
-              >
+              <Link to="/search" className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-green-600 hover:bg-green-700 text-white text-lg font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200">
                 View All Listings <i className="fa-solid fa-arrow-right" />
               </Link>
             </div>
@@ -680,36 +711,18 @@ export default function Home() {
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          CATEGORIES SECTION
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* CATEGORIES */}
       <section className="min-h-screen flex items-center bg-slate-50">
         <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-
           <FadeUp>
-            <div className="text-center max-w-md mx-auto mb-14">
-              <Eyebrow>Property Types</Eyebrow>
-              <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
-                Browse By Category
-              </h2>
-              <p className="text-slate-600 text-lg">Find exactly what you're looking for.</p>
-            </div>
+            <SectionHeading eyebrow="Property Types" title="Browse By Category" subtitle="Find exactly what you're looking for." />
           </FadeUp>
 
-          <div className="grid grid-cols-3 gap-8 items-center">
-
-            <div className="flex flex-col gap-5">
-              {[
-                { label: "House",     icon: "fa-house",    to: "/search?type=sale" },
-                { label: "Apartment", icon: "fa-building", to: "/search?type=sale" },
-                { label: "Villa",     icon: "fa-tree",     to: "/search?type=sale" },
-              ].map((c, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+            <div className="flex flex-col gap-5 order-2 md:order-1">
+              {CATEGORIES_LEFT.map((c, i) => (
                 <FadeUp key={c.label} delay={i * 70}>
-                  <Link
-                    to={c.to}
-                    className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-green-300 hover:bg-green-50 hover:translate-x-1 transition-all duration-200"
-                  >
+                  <Link to={c.to} className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-green-300 hover:bg-green-50 hover:translate-x-1 transition-all duration-200">
                     <div className="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center text-xl flex-shrink-0">
                       <i className={`fa-solid ${c.icon}`} />
                     </div>
@@ -720,27 +733,16 @@ export default function Home() {
             </div>
 
             <FadeUp delay={100}>
-              <div className="rounded-3xl overflow-hidden shadow-xl aspect-[3/4] bg-slate-200">
-                <img
-                  src="/images/image6.jpg"
-                  alt="Browse property categories"
-                  className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = "none"; }}
-                />
+              <div className="order-1 md:order-2 rounded-3xl overflow-hidden shadow-xl aspect-[3/4] bg-slate-200">
+                {/* /images/image6.jpg kept as-is */}
+                <img src="/images/image6.jpg" alt="Browse property categories" className="w-full h-full object-cover" onError={e => { e.target.style.display = "none"; }} />
               </div>
             </FadeUp>
 
-            <div className="flex flex-col gap-5">
-              {[
-                { label: "Commercial",    icon: "fa-store",          to: "/search?type=sale" },
-                { label: "Land",          icon: "fa-map",            to: "/search?type=sale" },
-                { label: "Vacation Home", icon: "fa-umbrella-beach", to: "/search?type=rent" },
-              ].map((c, i) => (
+            <div className="flex flex-col gap-5 order-3">
+              {CATEGORIES_RIGHT.map((c, i) => (
                 <FadeUp key={c.label} delay={i * 70}>
-                  <Link
-                    to={c.to}
-                    className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-green-300 hover:bg-green-50 hover:-translate-x-1 transition-all duration-200"
-                  >
+                  <Link to={c.to} className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-green-300 hover:bg-green-50 md:hover:-translate-x-1 transition-all duration-200">
                     <div className="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center text-xl flex-shrink-0">
                       <i className={`fa-solid ${c.icon}`} />
                     </div>
@@ -749,45 +751,82 @@ export default function Home() {
                 </FadeUp>
               ))}
             </div>
-
           </div>
         </div>
       </section>
 
+      {/* 100% VERIFIED */}
+      <section className="min-h-screen flex items-center bg-white relative overflow-hidden">
+        <img src="/images/bg3.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.08] pointer-events-none" onError={e => { e.target.style.display = "none"; }} />
+        <div className="absolute top-10 right-10 w-64 h-64 rounded-full border-[3px] border-green-200 pointer-events-none hidden lg:block" />
+        <div className="absolute bottom-10 left-1/3 w-10 h-10 rotate-12 border-2 border-green-300 pointer-events-none hidden lg:block" />
 
-      {/* ═══════════════════════════════════════════════════════════════
-          WHY CHOOSE US SECTION
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen flex items-center bg-white">
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+
+            {/* Big tick box */}
+            <Lottie animationData={verified} loop={true} className="w-80 h-80 mx-auto lg:mx-0" />
+
+            <FadeUp delay={100}>
+              <div>
+                <Eyebrow>Trust &amp; Safety</Eyebrow>
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 mb-5 leading-[1.1]">
+                  Every Listing.<br />Every Owner. Verified.
+                </h2>
+                <p className="text-lg md:text-xl text-slate-600 leading-relaxed mb-8">
+                  Before a property ever appears on Nestora, our team checks it —
+                  and before an owner can list, they verify who they are. No fakes,
+                  no fine print.
+                </p>
+
+                <ul className="space-y-3 mb-9">
+                  {VERIFY_CHECKLIST.map(item => (
+                    <li key={item} className="flex items-start gap-3 text-slate-700 text-base md:text-lg">
+                      <i className="fa-solid fa-circle-check text-green-600 text-xl mt-0.5 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {VERIFY_CARDS.map(v => (
+                    <div key={v.title} className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                      <div className="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center text-lg mb-4">
+                        <i className={`fa-solid ${v.icon}`} />
+                      </div>
+                      <h4 className="text-lg font-bold text-slate-900 mb-1.5">{v.title}</h4>
+                      <p className="text-base text-slate-600 leading-relaxed">{v.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </FadeUp>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY CHOOSE US */}
+      <section className="min-h-screen flex items-center bg-slate-50">
         <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <FadeUp>
               <div>
                 <Eyebrow>Why Us</Eyebrow>
-                <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 mb-5 leading-[1.1]">
                   Why Thousands<br />Choose Nestora
                 </h2>
-                <p className="text-slate-600 text-lg leading-relaxed mb-9">
+                <p className="text-lg md:text-xl text-slate-600 leading-relaxed mb-9">
                   We make real estate transactions simpler, safer, and faster —
                   backed by technology that puts you in control.
                 </p>
-                <div className="grid grid-cols-2 gap-5">
-                  {[
-                    { icon: "fa-shield-halved",             title: "Verified Listings",    desc: "Every property undergoes verification to improve trust and transparency." },
-                    { icon: "fa-comments",                  title: "Direct Communication", desc: "Connect directly with property owners and interested buyers." },
-                    { icon: "fa-magnifying-glass-location", title: "Smart Discovery",      desc: "Advanced filters help users find the right property quickly." },
-                    { icon: "fa-lock",                      title: "Secure Experience",    desc: "Built with privacy and reliability at the core." },
-                  ].map(f => (
-                    <div
-                      key={f.title}
-                      className="bg-slate-50 hover:bg-green-50 rounded-2xl p-6 transition-colors duration-200 border border-slate-100 hover:border-green-200"
-                    >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {WHY_US.map(f => (
+                    <div key={f.title} className="bg-white hover:bg-green-50 rounded-2xl p-6 transition-colors duration-200 border border-slate-100 hover:border-green-200">
                       <div className="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center text-lg mb-4">
                         <i className={`fa-solid ${f.icon}`} />
                       </div>
-                      <h4 className="text-base font-bold text-slate-900 mb-1.5">{f.title}</h4>
-                      <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
+                      <h4 className="text-lg font-bold text-slate-900 mb-1.5">{f.title}</h4>
+                      <p className="text-base text-slate-600 leading-relaxed">{f.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -796,48 +835,25 @@ export default function Home() {
 
             <FadeUp delay={130}>
               <div className="rounded-3xl overflow-hidden shadow-xl border border-slate-100 bg-slate-50">
-                <img
-                  src="/images/image7.jpg"
-                  alt="Platform dashboard"
-                  className="w-full object-cover"
-                  style={{ minHeight: 460 }}
-                  onError={e => { e.target.style.minHeight = "460px"; }}
-                />
+                {/* /images/image7.jpg kept as-is */}
+                <img src="/images/image7.jpg" alt="Platform dashboard" className="w-full object-cover" style={{ minHeight: 380 }} onError={e => { e.target.style.minHeight = "380px"; }} />
               </div>
             </FadeUp>
-
           </div>
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          HOW IT WORKS SECTION
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen flex items-center bg-slate-50">
-        <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-
+      {/*HOW IT WORKS */}
+      <section className="min-h-screen flex items-center bg-white relative overflow-hidden">
+        <img src="/images/bg4.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none" onError={e => { e.target.style.display = "none"; }} />
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
           <FadeUp>
-            <div className="text-center max-w-md mx-auto mb-20">
-              <Eyebrow>Process</Eyebrow>
-              <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
-                Get Started In Minutes
-              </h2>
-              <p className="text-slate-600 text-lg">
-                From account creation to closing a deal — four simple steps.
-              </p>
-            </div>
+            <SectionHeading eyebrow="Process" title="Get Started In Minutes" subtitle="From account creation to closing a deal — four simple steps." />
           </FadeUp>
 
-          <div className="relative grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="relative grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
             <div className="hidden md:block absolute top-16 left-[12%] right-[12%] h-0.5 bg-green-600 z-0" />
-
-            {[
-              { icon: "fa-user-plus",    label: "Create Your Account",            num: "01" },
-              { icon: "fa-list-ul",      label: "Browse or List a Property",      num: "02" },
-              { icon: "fa-comment-dots", label: "Connect with Buyers or Tenants", num: "03" },
-              { icon: "fa-handshake",    label: "Close the Deal",                 num: "04" },
-            ].map((s, i) => (
+            {PROCESS_STEPS.map((s, i) => (
               <FadeUp key={s.label} delay={i * 90}>
                 <div className="text-center relative z-10">
                   <p className="text-xl font-bold text-green-700 uppercase tracking-widest mb-3">{s.num}</p>
@@ -852,23 +868,16 @@ export default function Home() {
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          NESTORA INSIGHTS SECTION
-      ═══════════════════════════════════════════════════════════════ */}
+      {/*NESTORA INSIGHTS */}
       <section className="min-h-screen flex items-center relative overflow-hidden bg-green-900">
+        <img src="/images/bg5.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none mix-blend-overlay" onError={e => { e.target.style.display = "none"; }} />
         <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24 text-center">
-
           <FadeUp>
-            <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-5 py-2 text-sm font-semibold text-green-100 uppercase tracking-widest mb-6">
+            <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-5 py-2 text-sm md:text-base font-semibold text-green-100 uppercase tracking-widest mb-6">
               <i className="fa-solid fa-chart-line" /> Live Marketplace Data
             </div>
-            <h2 className="text-5xl font-extrabold tracking-tight text-white mb-5">
-              Nestora Insights
-            </h2>
-            <p className="text-green-100 text-lg max-w-md mx-auto">
-              Numbers pulled directly from the platform — updated in real time.
-            </p>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-5 leading-[1.1]">Nestora Insights</h2>
+            <p className="text-green-100 text-lg md:text-xl max-w-md mx-auto">Numbers pulled directly from the platform — updated in real time.</p>
           </FadeUp>
 
           <FadeUp delay={40}>
@@ -878,7 +887,7 @@ export default function Home() {
                 <div className={`text-4xl font-extrabold text-white ${visitorCount === null ? "opacity-30 animate-pulse" : ""}`}>
                   {visitorCount === null ? "—" : visitorCount.toLocaleString("en-IN")}
                 </div>
-                <div className="text-sm text-green-100 font-medium">Site Visitors</div>
+                <div className="text-sm md:text-base text-green-100 font-medium">Site Visitors</div>
               </div>
             </div>
           </FadeUp>
@@ -886,12 +895,12 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-5 mt-6">
             {INSIGHT_CARDS.map((c, i) => (
               <FadeUp key={c.label} delay={i * 60}>
-                <div className="bg-white/10 border border-white/20 rounded-2xl p-7 text-center hover:bg-white/15 hover:-translate-y-1 transition-all duration-200">
+                <div className="bg-white/10 border border-white/20 rounded-2xl p-6 sm:p-7 text-center hover:bg-white/15 hover:-translate-y-1 transition-all duration-200">
                   <i className={`fa-solid ${c.icon} text-3xl text-green-200 mb-4 block`} />
-                  <div className={`text-4xl font-extrabold text-white mb-2 ${insightsLoading ? "opacity-30 animate-pulse" : ""}`}>
+                  <div className={`text-3xl sm:text-4xl font-extrabold text-white mb-2 ${insightsLoading ? "opacity-30 animate-pulse" : ""}`}>
                     {insightsLoading ? "—" : c.value.toLocaleString("en-IN")}
                   </div>
-                  <div className="text-sm text-green-100 font-semibold">{c.label}</div>
+                  <div className="text-sm md:text-base text-green-100 font-semibold">{c.label}</div>
                 </div>
               </FadeUp>
             ))}
@@ -899,29 +908,21 @@ export default function Home() {
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          TESTIMONIALS SECTION
-          Avatar + username + quoted review + star rating, mirroring
-          the listing-card treatment used elsewhere on this page.
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen flex items-center bg-slate-50">
-        <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
-
+      {/* ═══ TESTIMONIALS ═══════════════════════════════════════════════ */}
+      <section className="min-h-screen flex items-center bg-slate-50 relative overflow-hidden">
+        <img src="/images/bg6.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none" onError={e => { e.target.style.display = "none"; }} />
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24">
           <FadeUp>
             <div className="text-center max-w-lg mx-auto mb-12">
               <Eyebrow>Testimonials</Eyebrow>
-              <h2 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-6">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-[1.1]">
                 Trusted By Buyers,<br />Sellers &amp; Tenants
               </h2>
-              <button
-                onClick={() => setReviewDialogOpen(true)}
-                className="inline-flex items-center gap-2 h-12 px-7 rounded-xl bg-green-600 hover:bg-green-700 text-white text-base font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200"
-              >
+              <button onClick={() => setReviewDialogOpen(true)} className="inline-flex items-center gap-2 h-12 px-7 rounded-xl bg-green-600 hover:bg-green-700 text-white text-lg font-bold transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200">
                 <i className="fa-solid fa-pen" /> Write a Review
               </button>
               {justSubmitted && (
-                <p className="text-green-700 text-sm font-semibold mt-3 flex items-center justify-center gap-1.5">
+                <p className="text-green-700 text-base font-semibold mt-3 flex items-center justify-center gap-1.5">
                   <i className="fa-solid fa-circle-check" /> Thanks! Your review is awaiting approval.
                 </p>
               )}
@@ -930,9 +931,7 @@ export default function Home() {
 
           {reviewsLoading && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="bg-white rounded-2xl p-7 border border-slate-100 animate-pulse h-56" />
-              ))}
+              {[0, 1, 2].map(i => <div key={i} className="bg-white rounded-2xl p-7 border border-slate-100 animate-pulse h-56" />)}
             </div>
           )}
 
@@ -942,13 +941,9 @@ export default function Home() {
                 <FadeUp key={t._id} delay={i * 80}>
                   <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-200 h-full">
                     <StarRow rating={t.rating} />
-                    <p className="text-base text-slate-700 leading-relaxed mb-7">&ldquo;{t.quote}&rdquo;</p>
+                    <p className="text-lg text-slate-700 leading-relaxed mb-7">&ldquo;{t.quote}&rdquo;</p>
                     <div className="flex items-center gap-3">
-                      <img
-                        src={t.avatar}
-                        alt={t.name}
-                        className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                      />
+                      <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />
                       <div>
                         <div className="text-base font-bold text-slate-900">{t.name}</div>
                         {t.role && <div className="text-sm text-slate-500">{t.role}</div>}
@@ -963,37 +958,32 @@ export default function Home() {
           {!reviewsLoading && reviews.length === 0 && (
             <div className="text-center py-16 text-slate-400">
               <i className="fa-solid fa-comment-slash text-5xl mb-4 block text-slate-200" />
-              <p className="text-base font-medium">No reviews yet — be the first to share your experience.</p>
+              <p className="text-lg font-medium">No reviews yet — be the first to share your experience.</p>
             </div>
           )}
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════════════════════════════════════
-          FINAL CTA SECTION — lightened background, trimmed markup
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen flex items-center bg-green-50">
-        <div className="max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24 text-center">
+      {/* ═══ FINAL CTA ══════════════════════════════════════════════════ */}
+      <section className="min-h-screen flex items-center bg-green-50 relative overflow-hidden">
+        {/* Background: /images/bg7.jpg — same family as bg1.jpg for bookend consistency,
+            opacity ~10%. Add a couple of large circle outlines for symmetry with the hero. */}
+        <img src="/images/bg7.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none" onError={e => { e.target.style.display = "none"; }} />
+        <GeoShapes />
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 md:px-16 py-24 text-center">
           <FadeUp>
-            <h2 className="text-6xl font-extrabold tracking-tight text-slate-900 mb-6">
+            <h2 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 leading-[1.08]">
               Ready To Make<br />Your Next Move?
             </h2>
-            <p className="text-slate-600 text-xl max-w-lg mx-auto mb-11">
+            <p className="text-slate-600 text-xl md:text-2xl max-w-lg mx-auto mb-11">
               Whether you're buying, renting, selling, or listing — your next
               opportunity starts right here.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link
-                to="/search"
-                className="inline-flex items-center gap-2 h-14 px-9 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200"
-              >
+              <Link to="/search" className="inline-flex items-center gap-2 h-14 px-9 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-green-200">
                 Explore Properties
               </Link>
-              <Link
-                to="/create-listing"
-                className="inline-flex items-center gap-2 h-14 px-9 rounded-xl bg-white border-2 border-green-200 text-slate-800 font-bold text-base hover:bg-green-100 transition-all duration-200 hover:-translate-y-0.5"
-              >
+              <Link to="/create-listing" className="inline-flex items-center gap-2 h-14 px-9 rounded-xl bg-white border-2 border-green-200 text-slate-800 font-bold text-lg hover:bg-green-100 transition-all duration-200 hover:-translate-y-0.5">
                 Post a Listing
               </Link>
             </div>
@@ -1004,13 +994,9 @@ export default function Home() {
       {reviewDialogOpen && (
         <ReviewDialog
           onClose={() => setReviewDialogOpen(false)}
-          onSubmitted={() => {
-            setJustSubmitted(true);
-            setTimeout(() => setJustSubmitted(false), 5000);
-          }}
+          onSubmitted={() => { setJustSubmitted(true); setTimeout(() => setJustSubmitted(false), 5000); }}
         />
       )}
-
     </div>
   );
 }
