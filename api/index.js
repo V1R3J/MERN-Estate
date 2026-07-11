@@ -19,9 +19,16 @@ mongoose
         console.log(err);
     });
 
-    const __dirname = path.resolve();
+const __dirname = path.resolve();
 
 const app = express();
+
+// ✅ Explicitly allow popup-based OAuth flows (fixes Google sign-in popup closing instantly)
+app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    next();
+});
 
 app.use(express.json());
 app.use(cookieParser());
